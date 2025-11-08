@@ -1,0 +1,587 @@
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Colors */
+  --color-background: #0a0a0a;
+  --color-foreground: #fafafa;
+  --color-primary: #8b5cf6;
+  --color-primary-foreground: #ffffff;
+  --color-muted: #525252;
+  --color-muted-foreground: #a3a3a3;
+  --color-border: #262626;
+  --color-card: #141414;
+
+  /* Spacing */
+  --container-max-width: 1280px;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  --spacing-2xl: 4rem;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background-color: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(38, 38, 38, 0.4);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 4rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background-color: var(--color-primary);
+  border-radius: 0.5rem;
+  color: var(--color-primary-foreground);
+}
+
+.logo-text {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.nav {
+  display: none;
+  gap: 2rem;
+}
+
+.nav-link {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: var(--color-foreground);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.btn-primary:hover {
+  background-color: #7c3aed;
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+}
+
+.btn-outline:hover {
+  background-color: var(--color-card);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-foreground);
+  display: none;
+}
+
+.btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* Hero Section */
+.hero {
+  position: relative;
+  padding: 8rem 1rem 5rem;
+  overflow: hidden;
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(139, 92, 246, 0.05), var(--color-background));
+}
+
+.hero-content {
+  position: relative;
+  max-width: 64rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 2rem;
+  background-color: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 9999px;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  text-wrap: balance;
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.hero-description {
+  font-size: 1.25rem;
+  color: var(--color-muted-foreground);
+  max-width: 42rem;
+  margin: 0 auto 2.5rem;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Stats Section */
+.stats {
+  padding: 4rem 1rem;
+  border-top: 1px solid rgba(38, 38, 38, 0.4);
+  border-bottom: 1px solid rgba(38, 38, 38, 0.4);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+/* Section Headers */
+.section-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.section-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-wrap: balance;
+}
+
+.section-description {
+  font-size: 1.125rem;
+  color: var(--color-muted-foreground);
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+/* Features Section */
+.features {
+  padding: 6rem 1rem;
+}
+
+.features-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  background-color: var(--color-card);
+  border: 1px solid rgba(38, 38, 38, 0.5);
+  border-radius: 0.75rem;
+  transition: background-color 0.2s;
+}
+
+.feature-card:hover {
+  background-color: rgba(20, 20, 20, 0.8);
+}
+
+.feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 0.5rem;
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
+.feature-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.feature-description {
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+
+/* Workflows Section */
+.workflows {
+  padding: 6rem 1rem;
+  background-color: rgba(38, 38, 38, 0.3);
+}
+
+.workflows-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.workflow-card {
+  position: relative;
+  padding: 2rem;
+  background-color: var(--color-card);
+  border: 1px solid rgba(38, 38, 38, 0.5);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.workflow-card:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.workflow-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.25rem 0.75rem;
+  background-color: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 9999px;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.workflow-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 0.75rem;
+  color: var(--color-primary);
+  margin-bottom: 1.5rem;
+}
+
+.workflow-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.workflow-description {
+  color: var(--color-muted-foreground);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.workflow-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workflow-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.workflow-features svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* CTA Section */
+.cta {
+  padding: 6rem 1rem;
+}
+
+.cta-card {
+  position: relative;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1), var(--color-background));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 1rem;
+  text-align: center;
+  overflow: hidden;
+}
+
+.cta-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-wrap: balance;
+}
+
+.cta-description {
+  font-size: 1.125rem;
+  color: var(--color-muted-foreground);
+  max-width: 42rem;
+  margin: 0 auto 2rem;
+}
+
+.cta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Footer */
+.footer {
+  padding: 3rem 1rem;
+  border-top: 1px solid rgba(38, 38, 38, 0.4);
+}
+
+.footer-grid {
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.footer-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.footer-description {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+
+.footer-heading {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.footer-links a {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: var(--color-foreground);
+}
+
+.footer-small {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+
+.footer-team {
+  margin-top: 0.75rem;
+}
+
+.footer-bottom {
+  padding-top: 2rem;
+  border-top: 1px solid rgba(38, 38, 38, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-bottom-links a {
+  color: var(--color-muted-foreground);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-bottom-links a:hover {
+  color: var(--color-foreground);
+}
+
+/* Responsive Design */
+@media (min-width: 640px) {
+  .btn-ghost {
+    display: inline-flex;
+  }
+
+  .hero-title {
+    font-size: 3.75rem;
+  }
+
+  .hero-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .cta-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .footer-bottom {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 768px) {
+  .nav {
+    display: flex;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title {
+    font-size: 4.5rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .stat-value {
+    font-size: 3rem;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .workflows-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .cta-title {
+    font-size: 3rem;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

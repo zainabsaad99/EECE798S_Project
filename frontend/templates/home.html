@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+</head>
+<body>
+    <!-- Include sidebar component -->
+    {% include 'components/sidebar.html' %}
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="account-main">
+            <div class="container">
+                <div class="account-header">
+                    <h1 class="account-title">Dashboard</h1>
+                    <p class="account-description">Welcome back, {{ user.full_name or user.email }}</p>
+                </div>
+
+                <div class="account-grid">
+                    <!-- Quick Stats -->
+                    <div class="account-card">
+                        <div class="card-header">
+                            <h2 class="card-title">Quick Stats</h2>
+                            <p class="card-description">Your account overview</p>
+                        </div>
+                        <div class="stats-list">
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Profile Completion</span>
+                                <span class="stat-value-small">75%</span>
+                            </div>
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Active Campaigns</span>
+                                <span class="stat-value-small">3</span>
+                            </div>
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Total Leads</span>
+                                <span class="stat-value-small">127</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="account-card">
+                        <div class="card-header">
+                            <h2 class="card-title">Recent Activity</h2>
+                            <p class="card-description">Your latest actions</p>
+                        </div>
+                        <div class="stats-list">
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Profile Updated</span>
+                                <span class="stat-value-small">Today</span>
+                            </div>
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Campaign Launched</span>
+                                <span class="stat-value-small">2 days ago</span>
+                            </div>
+                            <div class="stat-item-small">
+                                <span class="stat-label-small">Lead Generated</span>
+                                <span class="stat-value-small">3 days ago</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Marketing Insights -->
+                    <div class="account-card account-card-full">
+                        <div class="card-header">
+                            <h2 class="card-title">AI Marketing Insights</h2>
+                            <p class="card-description">Powered by NextGen AI</p>
+                        </div>
+                        <div class="form-group">
+                            <p style="color: #94a3b8; line-height: 1.6;">
+                                Based on your marketing goals, we recommend focusing on content marketing and social media engagement. 
+                                Your industry shows high engagement rates with video content and interactive posts.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+</body>
+</html>

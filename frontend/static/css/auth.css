@@ -1,0 +1,156 @@
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: rgba(26, 26, 46, 0.6);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  text-decoration: none;
+}
+
+.auth-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.auth-description {
+  font-size: 0.9375rem;
+  color: #94a3b8;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.form-input::placeholder {
+  color: #64748b;
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: -0.25rem;
+}
+
+.form-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.form-checkbox {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: #8b5cf6;
+}
+
+.form-link {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.form-link:hover {
+  color: #a78bfa;
+}
+
+.btn-full {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(139, 92, 246, 0.1);
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .auth-title {
+    font-size: 1.5rem;
+  }
+
+  .form-group-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

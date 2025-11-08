@@ -1,0 +1,228 @@
+/* Sidebar Styles */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 280px;
+  background: rgba(10, 10, 10, 0.95);
+  border-right: 1px solid rgba(139, 92, 246, 0.1);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: #ffffff;
+  transition: opacity 0.2s;
+}
+
+.sidebar-logo:hover {
+  opacity: 0.8;
+}
+
+.sidebar-logo .logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  border-radius: 8px;
+}
+
+.sidebar-logo-text {
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.2s;
+}
+
+.sidebar-toggle:hover {
+  color: #ffffff;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 1.5rem 0;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 2rem;
+}
+
+.sidebar-section-title {
+  display: block;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: all 0.2s;
+  font-size: 0.9375rem;
+}
+
+.sidebar-link:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: #ffffff;
+}
+
+.sidebar-link.active {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  border-left: 3px solid #8b5cf6;
+  padding-left: calc(1.5rem - 3px);
+}
+
+.sidebar-link svg {
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-email {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-logout {
+  font-size: 0.875rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Layout with sidebar */
+.layout-with-sidebar {
+  margin-left: 280px;
+  min-height: 100vh;
+}
+
+/* Mobile responsive */
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  .layout-with-sidebar {
+    margin-left: 0;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 998;
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    color: #ffffff;
+    padding: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+}
