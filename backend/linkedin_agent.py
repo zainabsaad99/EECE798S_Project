@@ -130,12 +130,18 @@ def launch_linkedin_scrape(phantom_api_key: str, session_cookie: str, user_agent
     return container_id
 
 
-def fetch_container_output_for_json_url(phantom_api_key: str, container_id: str, poll_seconds: int = DEFAULT_POLL_SECONDS, max_wait_seconds: int = DEFAULT_MAX_WAIT_SECONDS, debug: bool = True) -> str:
+def fetch_container_output_for_json_url(phantom_api_key: str, container_id: str, poll_seconds: int = DEFAULT_POLL_SECONDS, max_wait_seconds: int = DEFAULT_MAX_WAIT_SECONDS, debug: bool = True, progress_callback=None) -> str:
+    """
+    Fetch container output with optional progress callback.
+    progress_callback should be a function that takes a message string.
+    """
     headers = {"x-phantombuster-key": phantom_api_key}
     deadline = time.time() + max_wait_seconds
     primary_pat = re.compile(r"JSON saved at\s+(https?://\S+?)\s+result\.json", re.IGNORECASE)
     fallback_pat = re.compile(r"(https?://\S*?result\.json)", re.IGNORECASE)
     found_url = None
+    poll_count = 0
+    last_progress_time = time.time()
 
     while time.time() < deadline and not found_url:
         url_with_id = f"{PHANTOM_FETCH_OUTPUT_URL}?id={container_id}"
@@ -149,6 +155,21 @@ def fetch_container_output_for_json_url(phantom_api_key: str, container_id: str,
         if m2:
             found_url = m2.group(1)
             break
+        
+        poll_count += 1
+        elapsed = int(time.time() - (deadline - max_wait_seconds))
+        
+        # Send progress updates every 15 seconds or every 3 polls
+        if progress_callback and (time.time() - last_progress_time >= 15 or poll_count % 3 == 0):
+            if elapsed < 60:
+                msg = f"Scraping in progress... ({elapsed}s elapsed)"
+            elif elapsed < 120:
+                msg = f"Still scraping... This usually takes 2-3 minutes ({elapsed}s elapsed)"
+            else:
+                msg = f"Scraping taking longer than usual... Please wait ({elapsed}s elapsed)"
+            progress_callback(msg)
+            last_progress_time = time.time()
+        
         if debug:
             print(f"[FETCH OUTPUT] result url not found yet, sleeping {poll_seconds}")
         time.sleep(poll_seconds)
@@ -267,7 +288,10 @@ def infer_writing_style_from_posts(posts: List[PostItem], openai_api_key: str, m
         "Summarize the writing style in six to ten bullet style points. "
         "Cover tone, sentence length, structure, vocabulary, use of emojis, "
         "use of hashtags, and type of calls to action. "
-        "Keep the description precise and actionable."
+        "Keep the description precise and actionable. "
+        "IMPORTANT: Do NOT use markdown formatting (no **, no -, no bullet points). "
+        "Write in plain text with clear, readable sentences. "
+        "Each point should be a complete sentence or short paragraph."
     )
     resp = client.chat.completions.create(
         model=model,
@@ -483,18 +507,38 @@ def clear_google_sheet(sheet_url: str, service_account_json_path: str, debug: bo
 
 
 # Tool implementations for function calling
-def scrape_profile_tool(phantom_api_key: str, session_cookie: str, user_agent: str, profile_url: str) -> Dict[str, Any]:
+def scrape_profile_tool(phantom_api_key: str, session_cookie: str, user_agent: str, profile_url: str, progress_callback=None) -> Dict[str, Any]:
+    """
+    Scrape profile with optional progress callback.
+    progress_callback should be a function that takes a message string.
+    """
+    if progress_callback:
+        progress_callback("Launching PhantomBuster scrape...")
+    
     container_id = launch_linkedin_scrape(
         phantom_api_key=phantom_api_key,
         session_cookie=session_cookie,
         user_agent=user_agent,
         profile_url=profile_url,
     )
+    
+    if progress_callback:
+        progress_callback("Scrape launched! Waiting for results...")
+    
     json_url = fetch_container_output_for_json_url(
         phantom_api_key=phantom_api_key,
         container_id=container_id,
+        progress_callback=progress_callback,
     )
+    
+    if progress_callback:
+        progress_callback("Scrape completed! Downloading posts...")
+    
     posts = download_posts_json(json_url)
+    
+    if progress_callback:
+        progress_callback(f"Downloaded {len(posts)} posts successfully!")
+    
     return {
         "json_url": json_url,
         "posts": [p.__dict__ for p in posts],

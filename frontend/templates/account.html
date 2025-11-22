@@ -84,10 +84,15 @@
                                 <input type="url" id="website" name="website" class="form-input" value="{{ user.website or '' }}" placeholder="https://example.com">
                             </div>
 
-                            <!-- Added linkedin field -->
+                            <!-- LinkedIn field - Required for LinkedIn Agent -->
                             <div class="form-group">
-                                <label for="linkedin" class="form-label">LinkedIn</label>
-                                <input type="url" id="linkedin" name="linkedin" class="form-input" value="{{ user.linkedin or '' }}" placeholder="https://linkedin.com/in/you">
+                                <label for="linkedin" class="form-label">
+                                    LinkedIn Profile URL <span style="color: #ef4444;">*</span>
+                                </label>
+                                <input type="url" id="linkedin" name="linkedin" class="form-input" value="{{ user.linkedin or '' }}" placeholder="https://www.linkedin.com/in/yourprofile" required>
+                                <p class="form-hint" style="margin-top: 0.5rem; color: #6b7280;">
+                                    Required to use the LinkedIn Agent. We'll analyze your profile to extract your interests and writing style.
+                                </p>
                             </div>
 
                             <div class="form-row">

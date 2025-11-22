@@ -29,62 +29,129 @@
                     <p class="agent-description">Generate LinkedIn posts using AI-powered content creation</p>
                 </div>
 
-                <!-- Step 1: Configuration -->
-                <div class="agent-section" id="configSection">
+                {% if error_message %}
+                <div class="agent-section" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
                     <div class="section-header">
-                        <h2 class="section-title">Step 1: Configuration</h2>
-                        <p class="section-description">Optionally specify a style reference profile. All other settings (LinkedIn URL, cookie, sheet URL) are configured in .env file or your account profile.</p>
+                        <h2 class="section-title" style="color: #ef4444;">Setup Required</h2>
+                        <p class="section-description" style="color: #dc2626;">{{ error_message }}</p>
+                        <div style="margin-top: 1rem;">
+                            <a href="{{ url_for('account') }}" class="btn btn-primary">Go to Account Settings</a>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+
+                <!-- Step 1: Profile Data Section (Keywords & Tone) -->
+                {% if user_linkedin_data and user_linkedin_data.keywords and user_linkedin_data.keywords|length > 0 %}
+                <div class="agent-section" id="profileDataSection" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 1: Your Profile Data</h2>
+                        <p class="section-description">Your saved keywords of interest and writing tone extracted from your LinkedIn profile</p>
                     </div>
 
-                    <form id="configForm" class="agent-form">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="style_profile_url" class="form-label">
-                                    Style Reference Profile URL (Optional)
-                                    <span class="form-hint" style="display: block; margin-top: 0.25rem; font-weight: normal;">Leave empty to use your own profile as style reference</span>
-                                </label>
-                                <input type="url" id="style_profile_url" name="style_profile_url" class="form-input" placeholder="https://www.linkedin.com/in/styleprofile (optional)">
+                    <div class="results-grid">
+                        <div class="result-card">
+                            <h3 class="result-title">Keywords of Interest</h3>
+                            <div id="savedKeywordsDisplay" class="result-content">
+                                <ul class="keyword-list">
+                                    {% for keyword in user_linkedin_data.keywords %}
+                                    <li class="keyword-item">{{ keyword }}</li>
+                                    {% endfor %}
+                                </ul>
                             </div>
                         </div>
 
+                        <div class="result-card">
+                            <h3 class="result-title">Writing Tone</h3>
+                            <div id="savedToneDisplay" class="result-content" style="white-space: pre-line;">{{ user_linkedin_data.tone_of_writing or 'No tone data available' }}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" id="regenerateProfileBtn" class="btn btn-secondary">
+                            <span class="btn-text">Regenerate Keywords & Tone</span>
+                            <span class="btn-loader" style="display: none;">Regenerating...</span>
+                        </button>
+                        <button type="button" id="skipProfileBtn" class="btn btn-primary">
+                            <span class="btn-text">Skip</span>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- If no saved data, show message -->
+                <div class="agent-section" id="profileDataSection" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <div class="section-header">
+                        <h2 class="section-title" style="color: #ef4444;">Step 1: Profile Data Required</h2>
+                        <p class="section-description" style="color: #dc2626;">No keywords and tone found. Please regenerate them first.</p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="regenerateProfileBtn" class="btn btn-primary">
+                            <span class="btn-text">Regenerate Keywords & Tone</span>
+                            <span class="btn-loader" style="display: none;">Regenerating...</span>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Step 2: Style URL Section (shown after profile section) -->
+                <div class="agent-section" id="styleUrlSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 2: Style Reference (Optional)</h2>
+                        <p class="section-description">Optionally add a LinkedIn profile URL to use a different writing style, or skip to use your saved style</p>
+                    </div>
+
+                    <form id="styleUrlForm" class="agent-form">
+                        <div class="form-group">
+                            <label for="style_profile_url" class="form-label">
+                                Style Reference Profile URL (Optional)
+                                <span class="form-hint" style="display: block; margin-top: 0.25rem; font-weight: normal;">
+                                    Enter a LinkedIn profile URL to extract a different writing style, or leave empty and skip to use your saved style
+                                </span>
+                            </label>
+                            <input type="url" id="style_profile_url" name="style_profile_url" class="form-input" placeholder="https://www.linkedin.com/in/styleprofile (optional)">
+                        </div>
+
                         <div class="form-actions">
-                            <button type="button" id="runAgentBtn" class="btn btn-primary">
-                                <span class="btn-text">Run Agent</span>
+                            <button type="button" id="skipStyleUrlBtn" class="btn btn-secondary">
+                                <span class="btn-text">Skip</span>
+                            </button>
+                            <button type="button" id="processStyleUrlBtn" class="btn btn-primary">
+                                <span class="btn-text">Process Style URL</span>
                                 <span class="btn-loader" style="display: none;">Processing...</span>
                             </button>
                         </div>
                     </form>
                 </div>
 
-                <!-- Step 2: Results -->
-                <div class="agent-section" id="resultsSection" style="display: none;">
+                <!-- Step 3: Tone Display (only if style URL was processed) -->
+                <div class="agent-section" id="toneSection" style="display: none;">
                     <div class="section-header">
-                        <h2 class="section-title">Your Interests and Preferred Tone</h2>
-                        <p class="section-description">Review extracted keywords, style notes, and trend suggestions</p>
+                        <h2 class="section-title">Step 3: Writing Tone</h2>
+                        <p class="section-description">The writing tone extracted from the style reference profile</p>
                     </div>
 
-                    <div class="results-grid">
-                        <div class="result-card">
-                            <h3 class="result-title">Extracted Keywords</h3>
-                            <div id="keywordsDisplay" class="result-content"></div>
-                        </div>
-
-                        <div class="result-card">
-                            <h3 class="result-title">Writing Style Notes</h3>
-                            <div id="styleDisplay" class="result-content"></div>
-                        </div>
-
-                        <div class="result-card full-width">
-                            <h3 class="result-title">Trend Suggestions</h3>
-                            <div id="trendsDisplay" class="result-content"></div>
-                        </div>
+                    <div class="result-card">
+                        <h3 class="result-title">Writing Style Notes</h3>
+                        <div id="styleDisplay" class="result-content" style="white-space: pre-line;"></div>
                     </div>
                 </div>
 
-                <!-- Step 3: Generate Post -->
+                <!-- Step 4: Trends Section -->
+                <div class="agent-section" id="trendsSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 4: Trend Suggestions</h2>
+                        <p class="section-description">Trend suggestions based on your keywords of interest</p>
+                    </div>
+
+                    <div class="result-card full-width">
+                        <div id="trendsDisplay" class="result-content"></div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Generate Post -->
                 <div class="agent-section" id="generateSection" style="display: none;">
                     <div class="section-header">
-                        <h2 class="section-title">Step 3: Generate Post</h2>
+                        <h2 class="section-title">Step 5: Generate Post</h2>
                         <p class="section-description">Choose a trend or enter a custom topic</p>
                     </div>
 
@@ -98,7 +165,7 @@
 
                         <div class="form-group">
                             <label for="manualTopic" class="form-label">Or Enter Custom Topic</label>
-                            <input type="text" id="manualTopic" class="form-input" placeholder="Enter your custom topic here...">
+                            <input type="text" id="manualTopic" name="manualTopic" class="form-input" placeholder="Enter your custom topic here..." autocomplete="off" value="">
                         </div>
 
                         <div class="form-actions">
@@ -111,7 +178,11 @@
 
                     <div class="post-display" id="postDisplay" style="display: none;">
                         <h3 class="post-title">Generated Post</h3>
-                        <textarea id="postContent" class="post-content-editable" rows="10"></textarea>
+                        <!-- Streaming chat box -->
+                        <div id="streamingChatBox" class="streaming-chat-box" style="display: none;">
+                            <div class="chat-messages" id="chatMessages"></div>
+                        </div>
+                        <textarea id="postContent" class="post-content-editable" rows="10" style="display: none;"></textarea>
                         <div class="post-actions">
                             <button type="button" id="regeneratePostBtn" class="btn btn-secondary">Regenerate Post</button>
                             <button type="button" id="copyPostBtn" class="btn btn-secondary">Copy Post</button>
@@ -119,10 +190,10 @@
                     </div>
                 </div>
 
-                <!-- Step 4: Save & Autopost -->
+                <!-- Step 6: Save & Autopost -->
                 <div class="agent-section" id="saveSection" style="display: none;">
                     <div class="section-header">
-                        <h2 class="section-title">Step 4: Save & Autopost</h2>
+                        <h2 class="section-title">Step 6: Save & Autopost</h2>
                         <p class="section-description">Save to Google Sheets and optionally autopost</p>
                     </div>
 
@@ -175,6 +246,7 @@
 
                 <!-- Status Messages -->
                 <div id="statusMessages" class="status-messages"></div>
+                {% endif %}
             </div>
         </main>
     </div>
@@ -190,8 +262,13 @@
             user_agent: '{{ env_config.user_agent }}',
             google_sheet_url: '{{ env_config.google_sheet_url }}',
             linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
-            user_linkedin_url: '{{ env_config.user_linkedin_url }}'
+            user_linkedin_url: '{{ env_config.user_linkedin_url }}',
+            user_id: '{{ env_config.user_id }}'
         };
+        
+        // Initialize user LinkedIn data from server
+        // eslint-disable-next-line
+        wwindow.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};
     </script>
     <script src="{{ url_for('static', filename='js/linkedin_agent.js') }}"></script>
 </body>

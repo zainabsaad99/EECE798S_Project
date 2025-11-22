@@ -7,6 +7,8 @@ import logging
 from datetime import datetime
 import tempfile
 import shutil
+import time
+import threading
 from pathlib import Path
 from dotenv import load_dotenv
 import json
@@ -16,7 +18,10 @@ from linkedin_agent import (
     fetch_trends_firecrawl,
     save_post_to_google_sheet,
     trigger_phantombuster_autopost,
-    clear_google_sheet
+    clear_google_sheet,
+    scrape_profile_tool,
+    extract_keywords_tool,
+    infer_style_tool
 )
 
 # Load environment variables from .env file at project root
@@ -29,7 +34,7 @@ CORS(app)  # Enable CORS for frontend requests
 
 DB_HOST = os.getenv('DB_HOST', 'db')  # 'db' matches the service name in docker-compose.yml
 DB_PORT = os.getenv('DB_PORT', '3306')
-DB_NAME = os.getenv('DB_NAME', 'Hackathon')
+DB_NAME = os.getenv('DB_NAME', 'NextGenAI')
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
 
@@ -53,6 +58,7 @@ def signup():
         full_name = data.get('full_name')
         email = data.get('email')
         password = data.get('password')
+        linkedin_url = data.get('linkedin', '').strip()
 
         if not all([full_name, email, password]):
             return jsonify({"success": False, "message": "All fields are required."}), 400
@@ -69,6 +75,7 @@ def signup():
             "INSERT INTO users (full_name, email, password) VALUES (%s, %s, %s);",
             (full_name, email, hashed)
         )
+        user_id = cursor.lastrowid
         conn.commit()
 
         return jsonify({"success": True, "message": "User registered successfully.", "redirect": "/signin"}), 201
@@ -81,6 +88,58 @@ def signup():
             conn.close()
         except:
             pass
+
+
+def scrape_and_save_user_data(user_id: int, linkedin_url: str, phantom_api_key: str, session_cookie: str, user_agent: str, openai_api_key: str):
+    """Scrape user's LinkedIn profile and save keywords and tone to database"""
+    try:
+        # Scrape profile
+        scrape_result = scrape_profile_tool(
+            phantom_api_key=phantom_api_key,
+            session_cookie=session_cookie,
+            user_agent=user_agent,
+            profile_url=linkedin_url
+        )
+        
+        posts = scrape_result.get('posts', [])
+        if not posts:
+            app.logger.warning(f"No posts found for user {user_id}")
+            return
+        
+        # Extract keywords
+        keywords_result = extract_keywords_tool(
+            openai_api_key=openai_api_key,
+            posts=posts
+        )
+        keywords = keywords_result.get('keywords', [])
+        
+        # Extract tone/style
+        style_result = infer_style_tool(
+            openai_api_key=openai_api_key,
+            posts=posts
+        )
+        tone = style_result.get('style_notes', '')
+        
+        # Save to database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        keywords_json = json.dumps(keywords)
+        
+        cursor.execute(
+            """INSERT INTO user_linkedin_data (user_id, keywords, tone_of_writing) 
+               VALUES (%s, %s, %s)
+               ON DUPLICATE KEY UPDATE keywords=%s, tone_of_writing=%s, updated_at=CURRENT_TIMESTAMP""",
+            (user_id, keywords_json, tone, keywords_json, tone)
+        )
+        conn.commit()
+        
+        app.logger.info(f"Successfully saved LinkedIn data for user {user_id}")
+        
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        app.logger.exception(f"Error scraping and saving user data for user {user_id}: {e}")
 
 
 # ----------------------------- SIGNIN -----------------------------
@@ -145,6 +204,16 @@ def account():
                 'marketing_goals': data.get('marketing_goals')
             }
 
+            # Check if LinkedIn URL is being updated
+            linkedin_updated = False
+            new_linkedin_url = update_fields.get('linkedin', '').strip()
+            if new_linkedin_url:
+                # Get current LinkedIn URL to compare
+                cursor.execute("SELECT linkedin FROM users WHERE id=%s", (user_id,))
+                current_user = cursor.fetchone()
+                current_linkedin = current_user.get('linkedin', '') if current_user else ''
+                linkedin_updated = new_linkedin_url != current_linkedin
+
             set_clauses, values = [], []
             for field, value in update_fields.items():
                 if value not in [None, ""]:
@@ -157,6 +226,37 @@ def account():
             values.append(user_id)
             cursor.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", values)
             conn.commit()
+            
+            # If LinkedIn URL was updated, trigger scraping and wait for completion
+            if linkedin_updated and new_linkedin_url:
+                try:
+                    phantom_api_key = os.environ.get('PHANTOMBUSTER_API_KEY', '')
+                    session_cookie = os.environ.get('LINKEDIN_SESSION_COOKIE', '')
+                    user_agent = os.environ.get('USER_AGENT', '')
+                    openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+                    
+                    if all([phantom_api_key, session_cookie, user_agent, openai_api_key]):
+                        app.logger.info(f"LinkedIn URL updated for user {user_id}, starting scrape and extraction")
+                        # Run scraping synchronously - wait for completion
+                        scrape_and_save_user_data(user_id, new_linkedin_url, phantom_api_key, session_cookie, user_agent, openai_api_key)
+                        return jsonify({
+                            "success": True, 
+                            "message": "Profile updated successfully! LinkedIn profile analyzed and keywords/tone extracted.",
+                            "linkedin_processed": True
+                        }), 200
+                    else:
+                        return jsonify({
+                            "success": True,
+                            "message": "Profile updated. LinkedIn URL saved, but API keys are missing. Please configure them to enable profile analysis.",
+                            "linkedin_processed": False
+                        }), 200
+                except Exception as e:
+                    app.logger.error(f"Error scraping LinkedIn profile after update: {e}")
+                    return jsonify({
+                        "success": False,
+                        "message": f"Profile updated, but failed to analyze LinkedIn profile: {str(e)}. Please try again later."
+                    }), 200
+            
             return jsonify({"success": True, "message": "Profile updated successfully!"}), 200
 
         # --- GET ---
@@ -193,13 +293,507 @@ def account():
 
 
 # ----------------------------- LINKEDIN AGENT -----------------------------
-@app.route('/api/linkedin/run-agent', methods=['POST'])
-def linkedin_run_agent():
-    """Run the LinkedIn agent sequence"""
+@app.route('/api/linkedin/user-data', methods=['GET'])
+def linkedin_user_data():
+    """Get user's saved keywords and tone from database"""
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "message": "Missing user_id"}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        cursor.execute(
+            "SELECT keywords, tone_of_writing FROM user_linkedin_data WHERE user_id=%s",
+            (user_id,)
+        )
+        result = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        if result:
+            keywords = result.get('keywords')
+            if isinstance(keywords, str):
+                try:
+                    keywords = json.loads(keywords)
+                except:
+                    keywords = []
+            return jsonify({
+                "success": True,
+                "keywords": keywords or [],
+                "tone_of_writing": result.get('tone_of_writing') or ''
+            }), 200
+        else:
+            return jsonify({
+                "success": True,
+                "keywords": [],
+                "tone_of_writing": ""
+            }), 200
+            
+    except Exception as e:
+        app.logger.exception("Error fetching user LinkedIn data")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/linkedin/regenerate-user-data', methods=['POST'])
+def linkedin_regenerate_user_data():
+    """Regenerate keywords and tone from user's LinkedIn profile with streaming progress"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        stream = data.get('stream', False)
+        
+        if not user_id:
+            return jsonify({"success": False, "message": "Missing user_id"}), 400
+        
+        # Get user's LinkedIn URL
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT linkedin FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not user or not user.get('linkedin'):
+            return jsonify({"success": False, "message": "LinkedIn URL not found. Please set it in your account settings."}), 400
+        
+        linkedin_url = user.get('linkedin')
+        
+        # Get API keys from request or environment
+        phantom_api_key = data.get('phantom_api_key') or os.environ.get('PHANTOMBUSTER_API_KEY', '')
+        session_cookie = data.get('session_cookie') or os.environ.get('LINKEDIN_SESSION_COOKIE', '')
+        user_agent = data.get('user_agent') or os.environ.get('USER_AGENT', '')
+        openai_api_key = data.get('openai_api_key') or os.environ.get('OPENAI_API_KEY', '')
+        
+        if not all([phantom_api_key, session_cookie, user_agent, openai_api_key]):
+            return jsonify({
+                "success": False, 
+                "message": "Missing required API keys. Please configure PHANTOMBUSTER_API_KEY, LINKEDIN_SESSION_COOKIE, USER_AGENT, and OPENAI_API_KEY."
+            }), 400
+        
+        if stream:
+            # Streaming version with progress updates
+            def generate_progress():
+                try:
+                    yield f"data: {json.dumps({'progress': 'Starting LinkedIn profile scrape...'})}\n\n"
+                    
+                    from linkedin_agent import launch_linkedin_scrape, fetch_container_output_for_json_url, download_posts_json
+                    import time
+                    
+                    yield f"data: {json.dumps({'progress': 'Launching PhantomBuster scrape...'})}\n\n"
+                    container_id = launch_linkedin_scrape(
+                        phantom_api_key=phantom_api_key,
+                        session_cookie=session_cookie,
+                        user_agent=user_agent,
+                        profile_url=linkedin_url,
+                    )
+                    
+                    yield f"data: {json.dumps({'progress': 'Scrape launched! Waiting for results... This usually takes 2-3 minutes.'})}\n\n"
+                    
+                    # Poll with progress updates
+                    import time as time_module
+                    from linkedin_agent import PHANTOM_FETCH_OUTPUT_URL, DEFAULT_POLL_SECONDS, DEFAULT_MAX_WAIT_SECONDS
+                    import re
+                    from linkedin_agent import _http_get_text
+                    
+                    headers = {"x-phantombuster-key": phantom_api_key}
+                    deadline = time_module.time() + DEFAULT_MAX_WAIT_SECONDS
+                    primary_pat = re.compile(r"JSON saved at\s+(https?://\S+?)\s+result\.json", re.IGNORECASE)
+                    fallback_pat = re.compile(r"(https?://\S*?result\.json)", re.IGNORECASE)
+                    found_url = None
+                    poll_count = 0
+                    last_progress_time = time_module.time()
+                    start_time = time_module.time()
+                    
+                    while time_module.time() < deadline and not found_url:
+                        url_with_id = f"{PHANTOM_FETCH_OUTPUT_URL}?id={container_id}"
+                        text = _http_get_text(url_with_id, headers=headers, debug=False)
+                        m = primary_pat.search(text)
+                        if m:
+                            base = m.group(1).rstrip("/")
+                            found_url = f"{base}/result.json"
+                            break
+                        m2 = fallback_pat.search(text)
+                        if m2:
+                            found_url = m2.group(1)
+                            break
+                        
+                        poll_count += 1
+                        elapsed = int(time_module.time() - start_time)
+                        
+                        # Send progress updates every 15-20 seconds
+                        if time_module.time() - last_progress_time >= 15:
+                            if elapsed < 60:
+                                yield f"data: {json.dumps({'progress': f'Scraping in progress... ({elapsed}s elapsed)'})}\n\n"
+                            elif elapsed < 120:
+                                yield f"data: {json.dumps({'progress': f'Still scraping... This usually takes 2-3 minutes ({elapsed}s elapsed)'})}\n\n"
+                            else:
+                                yield f"data: {json.dumps({'progress': f'Scraping taking longer than usual... Please wait ({elapsed}s elapsed)'})}\n\n"
+                            last_progress_time = time_module.time()
+                        
+                        time_module.sleep(DEFAULT_POLL_SECONDS)
+                    
+                    if not found_url:
+                        raise TimeoutError("Could not locate result.json url in PhantomBuster output")
+                    
+                    yield f"data: {json.dumps({'progress': 'Scrape completed! Downloading posts...'})}\n\n"
+                    posts_objects = download_posts_json(found_url)
+                    # Convert PostItem objects to dictionaries
+                    posts = [p.__dict__ for p in posts_objects]
+                    yield f"data: {json.dumps({'progress': f'Downloaded {len(posts)} posts! Analyzing content...'})}\n\n"
+                    
+                    if not posts:
+                        yield f"data: {json.dumps({'progress': 'No posts found in profile.', 'error': 'No posts found', 'done': True})}\n\n"
+                        return
+                    
+                    # Extract keywords
+                    yield f"data: {json.dumps({'progress': 'Extracting keywords from your posts using AI...'})}\n\n"
+                    keywords_result = extract_keywords_tool(
+                        openai_api_key=openai_api_key,
+                        posts=posts
+                    )
+                    keywords = keywords_result.get('keywords', [])
+                    yield f"data: {json.dumps({'progress': f'Found {len(keywords)} keywords! Extracting writing style...'})}\n\n"
+                    
+                    # Extract tone/style
+                    yield f"data: {json.dumps({'progress': 'Analyzing writing style and tone using AI...'})}\n\n"
+                    style_result = infer_style_tool(
+                        openai_api_key=openai_api_key,
+                        posts=posts
+                    )
+                    tone = style_result.get('style_notes', '')
+                    yield f"data: {json.dumps({'progress': 'Writing style extracted! Saving to database...'})}\n\n"
+                    
+                    # Save to database
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    keywords_json = json.dumps(keywords)
+                    cursor.execute(
+                        """INSERT INTO user_linkedin_data (user_id, keywords, tone_of_writing) 
+                           VALUES (%s, %s, %s)
+                           ON DUPLICATE KEY UPDATE keywords=%s, tone_of_writing=%s, updated_at=CURRENT_TIMESTAMP""",
+                        (user_id, keywords_json, tone, keywords_json, tone)
+                    )
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                    
+                    yield f"data: {json.dumps({'progress': 'Keywords and tone saved successfully!', 'done': True, 'keywords': keywords, 'tone_of_writing': tone})}\n\n"
+                except GeneratorExit:
+                    return
+                except Exception as e:
+                    app.logger.exception(f"Error in regeneration stream: {e}")
+                    yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+            
+            return Response(stream_with_context(generate_progress()), mimetype='text/event-stream')
+        
+        # Non-streaming version (original)
+        try:
+            scrape_and_save_user_data(user_id, linkedin_url, phantom_api_key, session_cookie, user_agent, openai_api_key)
+            
+            # Fetch updated data
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                "SELECT keywords, tone_of_writing FROM user_linkedin_data WHERE user_id=%s",
+                (user_id,)
+            )
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                keywords = result.get('keywords')
+                if isinstance(keywords, str):
+                    try:
+                        keywords = json.loads(keywords)
+                    except:
+                        keywords = []
+                return jsonify({
+                    "success": True,
+                    "message": "Keywords and tone regenerated successfully!",
+                    "keywords": keywords or [],
+                    "tone_of_writing": result.get('tone_of_writing') or ''
+                }), 200
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "Regeneration completed but no data was saved."
+                }), 500
+                
+        except Exception as e:
+            app.logger.exception(f"Error during regeneration: {e}")
+            return jsonify({
+                "success": False,
+                "message": f"Error regenerating data: {str(e)}"
+            }), 500
+        
+    except Exception as e:
+        app.logger.exception("Error regenerating user LinkedIn data")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/linkedin/fetch-trends-only', methods=['POST'])
+def linkedin_fetch_trends_only():
+    """Fetch trends using saved keywords or provided keywords"""
     try:
         data = request.get_json()
         
-        # Validate required fields
+        required_fields = ['firecrawl_api_key', 'openai_api_key']
+        missing = [field for field in required_fields if not data.get(field)]
+        if missing:
+            return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
+        
+        keywords = data.get('keywords', [])
+        if not keywords:
+            return jsonify({"success": False, "message": "Keywords are required"}), 400
+        
+        trends = fetch_trends_firecrawl(
+            firecrawl_api_key=data['firecrawl_api_key'],
+            openai_api_key=data['openai_api_key'],
+            keywords=keywords,
+            topic=data.get('topic')
+        )
+        
+        return jsonify({
+            "success": True,
+            "trends": [item.model_dump() for item in trends]
+        }), 200
+        
+    except Exception as e:
+        app.logger.exception("Trend fetching failed")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/linkedin/run-agent', methods=['POST'])
+def linkedin_run_agent():
+    """Run the LinkedIn agent sequence - simplified if user has saved keywords/tone"""
+    try:
+        data = request.get_json()
+        
+        # Check if streaming is requested
+        stream = data.get('stream', False)
+        
+        # Check if user has saved keywords/tone (skip full agent sequence)
+        user_id = data.get('user_id')
+        use_saved_data = data.get('use_saved_data', False)
+        style_profile_url = data.get('style_profile_url', '').strip()
+        
+        # If use_saved_data is true, we should NOT run the full agent sequence
+        # We only scrape style profile (if provided) and use saved keywords
+        if use_saved_data and user_id:
+            # Use saved keywords and tone, just fetch trends
+            # IMPORTANT: We do NOT scrape user_profile_url - only style_profile_url if provided
+            app.logger.info(f"Using saved data for user {user_id}, style_profile_url: {style_profile_url}")
+            
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                "SELECT keywords, tone_of_writing FROM user_linkedin_data WHERE user_id=%s",
+                (user_id,)
+            )
+            saved_data = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if not saved_data:
+                return jsonify({
+                    "success": False,
+                    "message": "No saved data found. Please regenerate keywords and tone first."
+                }), 400
+            
+            if saved_data:
+                keywords = saved_data.get('keywords')
+                if isinstance(keywords, str):
+                    try:
+                        keywords = json.loads(keywords)
+                    except:
+                        keywords = []
+                
+                tone = saved_data.get('tone_of_writing', '')
+                
+                # If streaming is requested, use streaming endpoint
+                if stream:
+                    def generate_progress():
+                        # Initialize tone from saved data (will be updated if style URL is processed)
+                        current_tone = tone
+                        try:
+                            # If style profile URL provided, scrape it for tone
+                            if style_profile_url:
+                                yield f"data: {json.dumps({'progress': 'Starting style profile scrape...'})}\n\n"
+                                
+                                try:
+                                    phantom_api_key = data.get('phantom_api_key')
+                                    session_cookie = data.get('session_cookie')
+                                    user_agent = data.get('user_agent')
+                                    openai_api_key = data.get('openai_api_key')
+                                    
+                                    if all([phantom_api_key, session_cookie, user_agent, openai_api_key]):
+                                        # Scrape style profile and get tone with progress updates
+                                        from linkedin_agent import launch_linkedin_scrape, fetch_container_output_for_json_url, download_posts_json
+                                        import time as time_module
+                                        from linkedin_agent import PHANTOM_FETCH_OUTPUT_URL, DEFAULT_POLL_SECONDS, DEFAULT_MAX_WAIT_SECONDS
+                                        import re
+                                        from linkedin_agent import _http_get_text
+                                        
+                                        yield f"data: {json.dumps({'progress': 'Launching PhantomBuster scrape for style profile...'})}\n\n"
+                                        app.logger.info(f"Scraping style profile URL: {style_profile_url}")
+                                        container_id = launch_linkedin_scrape(
+                                            phantom_api_key=phantom_api_key,
+                                            session_cookie=session_cookie,
+                                            user_agent=user_agent,
+                                            profile_url=style_profile_url
+                                        )
+                                        
+                                        yield f"data: {json.dumps({'progress': 'Style profile scrape launched! Waiting for results... This usually takes 2-3 minutes.'})}\n\n"
+                                        
+                                        # Poll with progress updates
+                                        headers = {"x-phantombuster-key": phantom_api_key}
+                                        deadline = time_module.time() + DEFAULT_MAX_WAIT_SECONDS
+                                        primary_pat = re.compile(r"JSON saved at\s+(https?://\S+?)\s+result\.json", re.IGNORECASE)
+                                        fallback_pat = re.compile(r"(https?://\S*?result\.json)", re.IGNORECASE)
+                                        found_url = None
+                                        poll_count = 0
+                                        last_progress_time = time_module.time()
+                                        start_time = time_module.time()
+                                        
+                                        while time_module.time() < deadline and not found_url:
+                                            url_with_id = f"{PHANTOM_FETCH_OUTPUT_URL}?id={container_id}"
+                                            text = _http_get_text(url_with_id, headers=headers, debug=False)
+                                            m = primary_pat.search(text)
+                                            if m:
+                                                base = m.group(1).rstrip("/")
+                                                found_url = f"{base}/result.json"
+                                                break
+                                            m2 = fallback_pat.search(text)
+                                            if m2:
+                                                found_url = m2.group(1)
+                                                break
+                                            
+                                            poll_count += 1
+                                            elapsed = int(time_module.time() - start_time)
+                                            
+                                            # Send progress updates every 15-20 seconds
+                                            if time_module.time() - last_progress_time >= 15:
+                                                if elapsed < 60:
+                                                    yield f"data: {json.dumps({'progress': f'Scraping style profile... ({elapsed}s elapsed)'})}\n\n"
+                                                elif elapsed < 120:
+                                                    yield f"data: {json.dumps({'progress': f'Still scraping style profile... This usually takes 2-3 minutes ({elapsed}s elapsed)'})}\n\n"
+                                                else:
+                                                    yield f"data: {json.dumps({'progress': f'Style profile scraping taking longer than usual... Please wait ({elapsed}s elapsed)'})}\n\n"
+                                                last_progress_time = time_module.time()
+                                            
+                                            time_module.sleep(DEFAULT_POLL_SECONDS)
+                                        
+                                        if not found_url:
+                                            raise TimeoutError("Could not locate result.json url in PhantomBuster output")
+                                        
+                                        yield f"data: {json.dumps({'progress': 'Style profile scraped! Downloading posts...'})}\n\n"
+                                        posts_objects = download_posts_json(found_url)
+                                        # Convert PostItem objects to dictionaries
+                                        posts = [p.__dict__ for p in posts_objects]
+                                        app.logger.info(f"Style profile scraped, found {len(posts)} posts")
+                                        
+                                        if posts:
+                                            yield f"data: {json.dumps({'progress': f'Downloaded {len(posts)} posts! Analyzing writing style...'})}\n\n"
+                                            yield f"data: {json.dumps({'progress': 'Extracting writing style using AI...'})}\n\n"
+                                            style_result = infer_style_tool(
+                                                openai_api_key=openai_api_key,
+                                                posts=posts
+                                            )
+                                            current_tone = style_result.get('style_notes', current_tone)
+                                            yield f"data: {json.dumps({'progress': 'Writing style extracted successfully!', 'style_notes': current_tone})}\n\n"
+                                        else:
+                                            yield f"data: {json.dumps({'progress': 'No posts found in style profile. Using saved style.'})}\n\n"
+                                except Exception as e:
+                                    app.logger.warning(f"Error scraping style profile, using saved tone: {e}")
+                                    yield f"data: {json.dumps({'progress': f'Error scraping profile: {str(e)}. Using saved style.'})}\n\n"
+                            
+                            # Fetch trends with progress updates
+                            yield f"data: {json.dumps({'progress': 'Fetching trends based on your interests...'})}\n\n"
+                            yield f"data: {json.dumps({'progress': 'Searching for trending topics using Firecrawl...'})}\n\n"
+                            trends = fetch_trends_firecrawl(
+                                firecrawl_api_key=data.get('firecrawl_api_key'),
+                                openai_api_key=data.get('openai_api_key'),
+                                keywords=keywords,
+                                topic=None
+                            )
+                            yield f"data: {json.dumps({'progress': f'Found {len(trends)} trending topics! Processing results...'})}\n\n"
+                            
+                            yield f"data: {json.dumps({'progress': 'Trends fetched successfully!', 'done': True, 'keywords': keywords, 'style_notes': current_tone, 'trends': [item.model_dump() for item in trends]})}\n\n"
+                        except GeneratorExit:
+                            # Client disconnected
+                            return
+                        except Exception as e:
+                            app.logger.exception("Error in streaming agent")
+                            try:
+                                yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+                            except (GeneratorExit, RuntimeError):
+                                return
+                    
+                    return Response(stream_with_context(generate_progress()), mimetype='text/event-stream')
+                
+                # Non-streaming version (original)
+                # If style profile URL provided, scrape it for tone
+                if style_profile_url:
+                    try:
+                        phantom_api_key = data.get('phantom_api_key')
+                        session_cookie = data.get('session_cookie')
+                        user_agent = data.get('user_agent')
+                        openai_api_key = data.get('openai_api_key')
+                        
+                        if all([phantom_api_key, session_cookie, user_agent, openai_api_key]):
+                            # Scrape style profile and get tone
+                            scrape_result = scrape_profile_tool(
+                                phantom_api_key=phantom_api_key,
+                                session_cookie=session_cookie,
+                                user_agent=user_agent,
+                                profile_url=style_profile_url
+                            )
+                            posts = scrape_result.get('posts', [])
+                            if posts:
+                                style_result = infer_style_tool(
+                                    openai_api_key=openai_api_key,
+                                    posts=posts
+                                )
+                                tone = style_result.get('style_notes', tone)
+                    except Exception as e:
+                        app.logger.warning(f"Error scraping style profile, using saved tone: {e}")
+                
+                # Fetch trends
+                trends = fetch_trends_firecrawl(
+                    firecrawl_api_key=data.get('firecrawl_api_key'),
+                    openai_api_key=data.get('openai_api_key'),
+                    keywords=keywords,
+                    topic=None
+                )
+                
+                return jsonify({
+                    "success": True,
+                    "keywords": keywords,
+                    "style_notes": tone,
+                    "trends": [item.model_dump() for item in trends],
+                    "use_saved_data": True
+                }), 200
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "No saved data found. Please regenerate keywords and tone first."
+                }), 400
+        
+        # Original full agent sequence (if not using saved data)
+        # This should NOT be called when use_saved_data is true
+        # Guard: If use_saved_data was true, we should have returned above
+        if use_saved_data:
+            app.logger.error("use_saved_data is true but code reached full agent sequence - this should not happen")
+            return jsonify({
+                "success": False,
+                "message": "Invalid request: use_saved_data is true but no saved data was processed."
+            }), 400
+        
+        # Validate required fields for full agent sequence
         required_fields = ['openai_api_key', 'phantom_api_key', 'firecrawl_api_key', 
                           'session_cookie', 'user_agent', 'user_profile_url']
         missing = [field for field in required_fields if not data.get(field)]
@@ -207,7 +801,6 @@ def linkedin_run_agent():
             return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
         
         # If style_profile_url is not provided, use user_profile_url as default
-        style_profile_url = data.get('style_profile_url', '').strip()
         if not style_profile_url:
             style_profile_url = data['user_profile_url']
             app.logger.info(f"Style profile URL not provided, using user profile URL: {style_profile_url}")
@@ -269,27 +862,15 @@ def linkedin_generate_post():
         if missing:
             return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
         
-        # If manual topic is provided, optionally refine trends first
+        # If manual topic is provided, use it directly without fetching trends
         topic = data.get('topic', '').strip()
         manual_topic = data.get('manual_topic', '').strip()
         
         if manual_topic:
-            # Optionally fetch refined trends for manual topic
-            if data.get('firecrawl_api_key') and data.get('keywords'):
-                try:
-                    trends = fetch_trends_firecrawl(
-                        firecrawl_api_key=data['firecrawl_api_key'],
-                        openai_api_key=data['openai_api_key'],
-                        keywords=data.get('keywords', []),
-                        topic=manual_topic
-                    )
-                    if trends:
-                        topic = trends[0].title if trends else manual_topic
-                except Exception as e:
-                    app.logger.warning(f"Error fetching trends for manual topic: {e}")
-                    topic = manual_topic
-            else:
-                topic = manual_topic
+            # Use manual topic directly - don't fetch trends
+            # This ensures the post focuses exactly on what the user typed
+            topic = manual_topic
+            app.logger.info(f"Using manual topic directly (no trend fetching): {topic}")
         elif not topic:
             return jsonify({"success": False, "message": "Topic is required"}), 400
         
@@ -329,12 +910,29 @@ def linkedin_generate_post():
                     )
                     
                     for chunk in stream_response:
-                        if chunk.choices[0].delta.content:
-                            yield f"data: {json.dumps({'chunk': chunk.choices[0].delta.content})}\n\n"
+                        try:
+                            if chunk.choices[0].delta.content:
+                                yield f"data: {json.dumps({'chunk': chunk.choices[0].delta.content})}\n\n"
+                        except GeneratorExit:
+                            # Client disconnected, stop streaming
+                            return
+                        except Exception as e:
+                            # Log chunk processing errors but continue
+                            app.logger.warning(f"Error processing chunk: {e}")
                     
                     yield f"data: {json.dumps({'done': True})}\n\n"
+                except GeneratorExit:
+                    # Normal exception when stream is closed by client
+                    # Don't log this as an error, just return
+                    return
                 except Exception as e:
-                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    # Log other exceptions and try to send error to client
+                    app.logger.error(f"Error in post generation stream: {e}")
+                    try:
+                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    except (GeneratorExit, RuntimeError):
+                        # Generator was closed or connection lost
+                        return
             
             return Response(stream_with_context(generate()), mimetype='text/event-stream')
         else:
@@ -423,7 +1021,7 @@ def linkedin_save_to_sheet():
             "success": True,
             "worksheet_id": ws_id,
             "row_count": row_count,
-            "message": f"Post saved to sheet. Worksheet id {ws_id}, current row count {row_count}."
+            "message": "post saved"
         }), 200
         
     except Exception as e:
@@ -450,7 +1048,7 @@ def linkedin_autopost():
             number_of_posts_per_launch=data.get('number_of_posts_per_launch', 1)
         )
         
-        # Clear the sheet after posting if requested
+        # Schedule sheet clearing after 10 minutes if requested
         if data.get('clear_sheet_after_post', False) and data.get('service_account_json'):
             try:
                 import base64
@@ -461,23 +1059,42 @@ def linkedin_autopost():
                     import json as json_lib
                     sa_json_content = json_lib.dumps(sa_json_content)
                 
-                tmpdir = tempfile.mkdtemp(prefix="sajson_")
+                # Save service account JSON to a persistent temp file for delayed clearing
+                tmpdir = tempfile.mkdtemp(prefix="sajson_delayed_")
                 sa_path = os.path.join(tmpdir, "service_account.json")
                 with open(sa_path, 'w') as f:
                     f.write(sa_json_content)
                 
-                clear_google_sheet(
-                    sheet_url=data['sheet_url'],
-                    service_account_json_path=sa_path
-                )
+                # Schedule clearing after 10 minutes (600 seconds)
+                def delayed_clear_sheet():
+                    try:
+                        app.logger.info(f"Scheduled sheet clearing for {data['sheet_url']} after 10 minutes")
+                        time.sleep(600)  # Wait 10 minutes
+                        clear_google_sheet(
+                            sheet_url=data['sheet_url'],
+                            service_account_json_path=sa_path
+                        )
+                        app.logger.info(f"Sheet cleared successfully after 10 minutes: {data['sheet_url']}")
+                        # Cleanup temp directory after clearing
+                        try:
+                            shutil.rmtree(tmpdir)
+                        except:
+                            pass
+                    except Exception as e:
+                        app.logger.error(f"Failed to clear sheet after 10 minutes: {e}")
+                        # Cleanup on error
+                        try:
+                            shutil.rmtree(tmpdir)
+                        except:
+                            pass
                 
-                # Cleanup
-                try:
-                    shutil.rmtree(tmpdir)
-                except:
-                    pass
+                # Start background thread for delayed clearing
+                clear_thread = threading.Thread(target=delayed_clear_sheet, daemon=True)
+                clear_thread.start()
+                app.logger.info(f"Scheduled sheet clearing in 10 minutes for {data['sheet_url']}")
+                
             except Exception as e:
-                app.logger.warning(f"Failed to clear sheet after posting: {e}")
+                app.logger.warning(f"Failed to schedule sheet clearing: {e}")
         
         return jsonify({"success": True, "autopost_response": result}), 200
         
@@ -537,24 +1154,26 @@ def linkedin_clear_sheet():
 def linkedin_service_account_file():
     """Serve the default service account JSON file"""
     try:
-        # Path to the service account file in project root
-        # File is at: EECE798S_Project\linkedin-agent-478216-f37f2b2ce601.json
-        project_root = Path(__file__).parent.parent
-        sa_file_path = project_root / 'linkedin-agent-478216-f37f2b2ce601.json'
+        # Try multiple possible paths
+        possible_paths = [
+            # In Docker container (copied to /app)
+            Path(__file__).parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+            # Project root (for local development)
+            Path(__file__).parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+            # Alternative project root
+            Path(__file__).parent.parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+        ]
         
-        if sa_file_path.exists():
-            with open(sa_file_path, 'r') as f:
-                content = f.read()
-            return content, 200, {'Content-Type': 'application/json'}
-        else:
-            app.logger.warning(f"Service account file not found at: {sa_file_path}")
-            # Try alternative path
-            alt_path = project_root.parent / 'linkedin-agent-478216-f37f2b2ce601.json'
-            if alt_path.exists():
-                with open(alt_path, 'r') as f:
+        for sa_file_path in possible_paths:
+            if sa_file_path.exists():
+                app.logger.info(f"Found service account file at: {sa_file_path}")
+                with open(sa_file_path, 'r') as f:
                     content = f.read()
                 return content, 200, {'Content-Type': 'application/json'}
-            return jsonify({"error": f"Service account file not found. Checked: {sa_file_path}, {alt_path}"}), 404
+        
+        # If not found, log all attempted paths
+        app.logger.warning(f"Service account file not found. Checked paths: {possible_paths}")
+        return jsonify({"error": f"Service account file not found. Checked: {possible_paths}"}), 404
     except Exception as e:
         app.logger.exception("Error serving service account file")
         return jsonify({"error": str(e)}), 500

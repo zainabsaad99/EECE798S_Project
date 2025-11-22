@@ -106,24 +106,67 @@ def home():
 @app.route('/linkedin-agent')
 @login_required
 def linkedin_agent():
-    """LinkedIn Content Agent page"""
+    """LinkedIn Content Agent page - requires LinkedIn URL and extracted data"""
     try:
         # Get user's LinkedIn URL from database
         user = session.get('user')
         user_id = user.get('user_id') if user else None
         
+        if not user_id:
+            return render_template('linkedin_agent.html', 
+                                 user=None, 
+                                 env_config={},
+                                 user_linkedin_data=None,
+                                 error_message="Please sign in to access the LinkedIn Agent.")
+        
         user_data = None
         user_linkedin_url = ''
         
-        if user_id:
-            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+        response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+        if response.status_code == 200:
+            user_data = response.json().get('user', {})
+            user_linkedin_url = user_data.get('linkedin', '')
+        
+        # Check if LinkedIn URL is set
+        if not user_linkedin_url:
+            # Show error message
+            return render_template('linkedin_agent.html', 
+                                 user=user_data, 
+                                 env_config={},
+                                 user_linkedin_data=None,
+                                 error_message="Please add your LinkedIn Profile URL in your account settings first.")
+        
+        # Get user's saved LinkedIn data (keywords and tone)
+        user_linkedin_data = None
+        try:
+            response = requests.get(f'{BACKEND_API_URL}/api/linkedin/user-data', params={'user_id': user_id})
             if response.status_code == 200:
-                user_data = response.json().get('user', {})
-                user_linkedin_url = user_data.get('linkedin', '')
+                user_linkedin_data = response.json()
+        except Exception as e:
+            print(f"Error fetching user LinkedIn data: {e}")
+        
+        # Check if keywords and tone are extracted
+        has_data = (user_linkedin_data and 
+                   user_linkedin_data.get('success') and 
+                   user_linkedin_data.get('keywords') and 
+                   len(user_linkedin_data.get('keywords', [])) > 0 and
+                   user_linkedin_data.get('tone_of_writing'))
+        
+        if not has_data:
+            # Show message that data is being processed
+            return render_template('linkedin_agent.html', 
+                                 user=user_data, 
+                                 env_config={},
+                                 user_linkedin_data=None,
+                                 error_message="Your LinkedIn profile is being analyzed. Please wait a few minutes and refresh the page. If this message persists, try saving your LinkedIn URL again in account settings.")
+        
     except Exception as e:
-        print(f"Error fetching user LinkedIn URL: {e}")
-        user_data = None
-        user_linkedin_url = ''
+        print(f"Error in linkedin_agent route: {e}")
+        return render_template('linkedin_agent.html', 
+                             user=None, 
+                             env_config={},
+                             user_linkedin_data=None,
+                             error_message="An error occurred. Please try again.")
     
     # Read API keys from environment variables (if set)
     # Default Google Sheet URL
@@ -137,8 +180,9 @@ def linkedin_agent():
         'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', default_sheet_url),
         'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
         'user_linkedin_url': user_linkedin_url,  # From database
+        'user_id': user_id,  # Pass user_id to template
     }
-    return render_template('linkedin_agent.html', user=user_data, env_config=env_config)
+    return render_template('linkedin_agent.html', user=user_data, env_config=env_config, user_linkedin_data=user_linkedin_data)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
