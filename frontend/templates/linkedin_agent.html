@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Content Agent - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/linkedin_agent.css') }}">
+</head>
+<body>
+    <!-- Include sidebar component -->
+    {% include 'components/sidebar.html' %}
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="linkedin-agent-main">
+            <div class="container">
+                <div class="agent-header">
+                    <h1 class="agent-title">LinkedIn Content Agent</h1>
+                    <p class="agent-description">Generate LinkedIn posts using AI-powered content creation</p>
+                </div>
+
+                {% if error_message %}
+                <div class="agent-section" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <div class="section-header">
+                        <h2 class="section-title" style="color: #ef4444;">Setup Required</h2>
+                        <p class="section-description" style="color: #dc2626;">{{ error_message }}</p>
+                        <div style="margin-top: 1rem;">
+                            <a href="{{ url_for('account') }}" class="btn btn-primary">Go to Account Settings</a>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+
+                <!-- Step 1: Profile Data Section (Keywords & Tone) -->
+                {% if user_linkedin_data and user_linkedin_data.keywords and user_linkedin_data.keywords|length > 0 %}
+                <div class="agent-section" id="profileDataSection" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 1: Your Profile Data</h2>
+                        <p class="section-description">Your saved keywords of interest and writing tone extracted from your LinkedIn profile</p>
+                    </div>
+
+                    <div class="results-grid">
+                        <div class="result-card">
+                            <h3 class="result-title">Keywords of Interest</h3>
+                            <div id="savedKeywordsDisplay" class="result-content">
+                                <ul class="keyword-list">
+                                    {% for keyword in user_linkedin_data.keywords %}
+                                    <li class="keyword-item">{{ keyword }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3 class="result-title">Writing Tone</h3>
+                            <div id="savedToneDisplay" class="result-content" style="white-space: pre-line;">{{ user_linkedin_data.tone_of_writing or 'No tone data available' }}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" id="regenerateProfileBtn" class="btn btn-secondary">
+                            <span class="btn-text">Regenerate Keywords & Tone</span>
+                            <span class="btn-loader" style="display: none;">Regenerating...</span>
+                        </button>
+                        <button type="button" id="skipProfileBtn" class="btn btn-primary">
+                            <span class="btn-text">Skip</span>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- If no saved data, show message -->
+                <div class="agent-section" id="profileDataSection" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <div class="section-header">
+                        <h2 class="section-title" style="color: #ef4444;">Step 1: Profile Data Required</h2>
+                        <p class="section-description" style="color: #dc2626;">No keywords and tone found. Please regenerate them first.</p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="regenerateProfileBtn" class="btn btn-primary">
+                            <span class="btn-text">Regenerate Keywords & Tone</span>
+                            <span class="btn-loader" style="display: none;">Regenerating...</span>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Step 2: Style URL Section (shown after profile section) -->
+                <div class="agent-section" id="styleUrlSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 2: Style Reference (Optional)</h2>
+                        <p class="section-description">Optionally add a LinkedIn profile URL to use a different writing style, or skip to use your saved style</p>
+                    </div>
+
+                    <form id="styleUrlForm" class="agent-form">
+                        <div class="form-group">
+                            <label for="style_profile_url" class="form-label">
+                                Style Reference Profile URL (Optional)
+                                <span class="form-hint" style="display: block; margin-top: 0.25rem; font-weight: normal;">
+                                    Enter a LinkedIn profile URL to extract a different writing style, or leave empty and skip to use your saved style
+                                </span>
+                            </label>
+                            <input type="url" id="style_profile_url" name="style_profile_url" class="form-input" placeholder="https://www.linkedin.com/in/styleprofile (optional)">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="skipStyleUrlBtn" class="btn btn-secondary">
+                                <span class="btn-text">Skip</span>
+                            </button>
+                            <button type="button" id="processStyleUrlBtn" class="btn btn-primary">
+                                <span class="btn-text">Process Style URL</span>
+                                <span class="btn-loader" style="display: none;">Processing...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Step 3: Tone Display (only if style URL was processed) -->
+                <div class="agent-section" id="toneSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 3: Writing Tone</h2>
+                        <p class="section-description">The writing tone extracted from the style reference profile</p>
+                    </div>
+
+                    <div class="result-card">
+                        <h3 class="result-title">Writing Style Notes</h3>
+                        <div id="styleDisplay" class="result-content" style="white-space: pre-line;"></div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Trends Section -->
+                <div class="agent-section" id="trendsSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 4: Trend Suggestions</h2>
+                        <p class="section-description">Trend suggestions based on your keywords of interest</p>
+                    </div>
+
+                    <div class="result-card full-width">
+                        <div id="trendsDisplay" class="result-content"></div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Generate Post -->
+                <div class="agent-section" id="generateSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 5: Generate Post</h2>
+                        <p class="section-description">Choose a trend or enter a custom topic</p>
+                    </div>
+
+                    <div class="generate-form">
+                        <div class="form-group">
+                            <label for="trendSelect" class="form-label">Select a Suggested Trend</label>
+                            <select id="trendSelect" class="form-input">
+                                <option value="">-- Select a trend --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="manualTopic" class="form-label">Or Enter Custom Topic</label>
+                            <input type="text" id="manualTopic" name="manualTopic" class="form-input" placeholder="Enter your custom topic here..." autocomplete="off" value="">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="generatePostBtn" class="btn btn-primary">
+                                <span class="btn-text">Generate LinkedIn Post</span>
+                                <span class="btn-loader" style="display: none;">Generating...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="post-display" id="postDisplay" style="display: none;">
+                        <h3 class="post-title">Generated Post</h3>
+                        <!-- Streaming chat box -->
+                        <div id="streamingChatBox" class="streaming-chat-box" style="display: none;">
+                            <div class="chat-messages" id="chatMessages"></div>
+                        </div>
+                        <textarea id="postContent" class="post-content-editable" rows="10" style="display: none;"></textarea>
+                        <div class="post-actions">
+                            <button type="button" id="regeneratePostBtn" class="btn btn-secondary">Regenerate Post</button>
+                            <button type="button" id="copyPostBtn" class="btn btn-secondary">Copy Post</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6: Save & Autopost -->
+                <div class="agent-section" id="saveSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 6: Save & Autopost</h2>
+                        <p class="section-description">Save to Google Sheets and optionally autopost</p>
+                    </div>
+
+                    <div class="save-form">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="saveToSheet" checked>
+                                <span>Save to Google Sheet</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autopost">
+                                <span>Autopost with PhantomBuster</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="clearSheetAfterPost" checked>
+                                <span>Clear sheet after posting</span>
+                            </label>
+                        </div>
+
+                        <!-- LinkedIn Session Cookie (only required for autopost) -->
+                        <div class="form-group" id="sessionCookieGroup" style="display: none;">
+                            <label for="autopost_session_cookie" class="form-label">
+                                LinkedIn Session Cookie (Required for Autopost) *
+                            </label>
+                            <input type="password" id="autopost_session_cookie" name="autopost_session_cookie" 
+                                   class="form-input" 
+                                   placeholder="Enter your LinkedIn session cookie (or reuse from scraping)">
+                            <small class="form-hint">
+                                How to get: F12 → Application → Cookies → linkedin.com → Copy "li_at" value.
+                                <br>Note: If you already entered this when running the agent, you can reuse it or enter a new one.
+                            </small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="saveAndPostBtn" class="btn btn-primary">
+                                <span class="btn-text">Save and Post</span>
+                                <span class="btn-loader" style="display: none;">Processing...</span>
+                            </button>
+                        </div>
+
+                        <div id="saveResults" class="save-results"></div>
+                    </div>
+                </div>
+
+                <!-- Status Messages -->
+                <div id="statusMessages" class="status-messages"></div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        // Pass API keys from backend to frontend (hidden from user)
+        // Note: LinkedIn session cookie is NOT included - user enters it when autoposting
+        window.ENV_CONFIG = {
+            openai_api_key: '{{ env_config.openai_api_key }}',
+            phantombuster_api_key: '{{ env_config.phantombuster_api_key }}',
+            firecrawl_api_key: '{{ env_config.firecrawl_api_key }}',
+            user_agent: '{{ env_config.user_agent }}',
+            google_sheet_url: '{{ env_config.google_sheet_url }}',
+            linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
+            user_linkedin_url: '{{ env_config.user_linkedin_url }}',
+            user_id: '{{ env_config.user_id }}'
+        };
+        
+        // Initialize user LinkedIn data from server
+        // eslint-disable-next-line
+        wwindow.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};
+    </script>
+    <script src="{{ url_for('static', filename='js/linkedin_agent.js') }}"></script>
+</body>
+</html>
+

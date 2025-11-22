@@ -8,6 +8,11 @@ services:
     container_name: flask-frontend
     ports:
       - "3000:3000"
+    env_file:
+      - ./.env
+    environment:
+      - FLASK_ENV=development
+      - BACKEND_URL=http://backend:5000
     depends_on:
       - backend
     networks:
@@ -19,6 +24,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: flask-backend
+    env_file:
+      - ./.env
     environment:
       - FLASK_ENV=development
       - DB_HOST=db
@@ -28,6 +35,9 @@ services:
       - DB_PASSWORD=password
     ports:
       - "5000:5000"
+    volumes:
+      # Mount the service account JSON file from project root
+      - ./linkedin-agent-478216-f37f2b2ce601.json:/app/linkedin-agent-478216-f37f2b2ce601.json:ro
     depends_on:
       - db
     networks:
