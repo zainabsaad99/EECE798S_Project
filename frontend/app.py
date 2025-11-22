@@ -1,13 +1,32 @@
 from flask import Flask, render_template, request, jsonify, session, url_for, redirect
 import requests
 import re
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+from functools import wraps
+
+# Load environment variables from .env file at project root
+# Go up one level from frontend/ to project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 app = Flask(__name__)
-app.secret_key = 'dev-key-123-abc!@#'
-BACKEND_API_URL = "http://backend:5000"  # adjust if not using Docker
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-123-abc!@#')
+BACKEND_API_URL = os.environ.get('BACKEND_URL', 'http://backend:5000')
 
 def validate_email_format(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get('user')
+        if not user:
+            return redirect(url_for('signin'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def index():
@@ -28,11 +47,17 @@ def signin():
         data = request.get_json() if request.is_json else request.form
         response = requests.post(f"{BACKEND_API_URL}/signin", json=data)
         if response.status_code == 200:
-            session['user'] = response.json()
+            result = response.json()
+            session['user'] = {
+                'user_id': result.get('user_id'),
+                'email': result.get('email'),
+                'full_name': result.get('full_name')
+            }
         return jsonify(response.json()), response.status_code
     return render_template('signin.html')
 
 @app.route('/account', methods=['GET', 'POST'])
+@login_required
 def account():
     user = session.get('user')
     if not user:
@@ -54,160 +79,66 @@ def account():
 @app.route('/signout')
 def signout():
     session.clear()
-    return jsonify({"success": True, "redirect": url_for('signin')})
+    return redirect(url_for('signin'))
 
 @app.route('/home')
+@login_required
 def home():
     try:
+        user = session.get('user')
+        user_id = user.get('user_id') if user else None
+        if not user_id:
+            return redirect(url_for('signin'))
+        
         # Get user data from backend
-        response = requests.get(f'{BACKEND_API_URL}/user/{session["user_id"]}')
+        response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
         
         if response.status_code == 200:
-            user = response.json()
-            return render_template('home.html', user=user)
+            user_data = response.json().get('user')
+            return render_template('home.html', user=user_data)
         else:
             return redirect(url_for('signin'))
     except Exception as e:
         print(f"Error fetching user data: {e}")
         return redirect(url_for('signin'))
 
+# LinkedIn Agent page
+@app.route('/linkedin-agent')
+@login_required
+def linkedin_agent():
+    """LinkedIn Content Agent page"""
+    try:
+        # Get user's LinkedIn URL from database
+        user = session.get('user')
+        user_id = user.get('user_id') if user else None
+        
+        user_data = None
+        user_linkedin_url = ''
+        
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                user_data = response.json().get('user', {})
+                user_linkedin_url = user_data.get('linkedin', '')
+    except Exception as e:
+        print(f"Error fetching user LinkedIn URL: {e}")
+        user_data = None
+        user_linkedin_url = ''
+    
+    # Read API keys from environment variables (if set)
+    # Default Google Sheet URL
+    default_sheet_url = 'https://docs.google.com/spreadsheets/d/10OsJwVQAboMx3LKfoZhQLRQ9w9UuekvNG1_oaZNgOMM/edit?usp=sharing'
+    
+    env_config = {
+        'openai_api_key': os.environ.get('OPENAI_API_KEY', ''),
+        'phantombuster_api_key': os.environ.get('PHANTOMBUSTER_API_KEY', ''),
+        'firecrawl_api_key': os.environ.get('FIRECRAWL_API_KEY', ''),
+        'user_agent': os.environ.get('USER_AGENT', ''),
+        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', default_sheet_url),
+        'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
+        'user_linkedin_url': user_linkedin_url,  # From database
+    }
+    return render_template('linkedin_agent.html', user=user_data, env_config=env_config)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-import requests
-import os
-from functools import wraps
-
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-
-# Backend API URL
-BACKEND_URL = os.environ.get('BACKEND_URL', 'http://backend:5000')
-
-# Login required decorator
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return redirect(url_for('signin'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# Home page
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-# Sign up page (GET)
-@app.route('/signup', methods=['GET'])
-def signup():
-    return render_template('signup.html')
-
-# Sign up handler (POST)
-@app.route('/signup', methods=['POST'])
-def signup_post():
-    try:
-        data = request.get_json()
-        
-        # Call backend API to create user
-        response = requests.post(f'{BACKEND_URL}/signup', json=data)
-        result = response.json()
-        
-        if response.status_code == 201:
-            # Store user info in session
-            session['user_id'] = result['user']['id']
-            session['user_email'] = result['user']['email']
-            return jsonify({'success': True, 'redirect': url_for('account')})
-        else:
-            return jsonify({'success': False, 'message': result.get('error', 'Sign up failed')})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
-
-# Sign in page (GET)
-@app.route('/signin', methods=['GET'])
-def signin():
-    return render_template('signin.html')
-
-# Sign in handler (POST)
-@app.route('/signin', methods=['POST'])
-def signin_post():
-    try:
-        data = request.get_json()
-        
-        # Call backend API to authenticate
-        response = requests.post(f'{BACKEND_URL}/login', json=data)
-        result = response.json()
-        
-        if response.status_code == 200:
-            # Store user info in session
-            session['user_id'] = result['user']['id']
-            session['user_email'] = result['user']['email']
-            return jsonify({'success': True, 'redirect': url_for('account')})
-        else:
-            return jsonify({'success': False, 'message': result.get('error', 'Invalid credentials')})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
-
-# Sign out
-@app.route('/signout')
-def signout():
-    session.clear()
-    return redirect(url_for('index'))
-
-@app.route('/home')
-@login_required
-def home():
-    try:
-        # Get user data from backend
-        response = requests.get(f'{BACKEND_URL}/user/{session["user_id"]}')
-        
-        if response.status_code == 200:
-            user = response.json()
-            return render_template('home.html', user=user)
-        else:
-            return redirect(url_for('signin'))
-    except Exception as e:
-        print(f"Error fetching user data: {e}")
-        return redirect(url_for('signin'))
-
-# Account page
-@app.route('/account')
-@login_required
-def account():
-    try:
-        # Get user data from backend
-        response = requests.get(f'{BACKEND_URL}/user/{session["user_id"]}')
-        
-        if response.status_code == 200:
-            user = response.json()
-            return render_template('account.html', user=user)
-        else:
-            return redirect(url_for('signin'))
-    except Exception as e:
-        print(f"Error fetching user data: {e}")
-        return redirect(url_for('signin'))
-
-# Update account (POST)
-@app.route('/account', methods=['POST'])
-@login_required
-def account_update():
-    try:
-        data = request.get_json()
-        
-        # Call backend API to update user
-        response = requests.put(
-            f'{BACKEND_URL}/user/{session["user_id"]}',
-            json=data
-        )
-        result = response.json()
-        
-        if response.status_code == 200:
-            return jsonify({'success': True, 'message': 'Profile updated successfully'})
-        else:
-            return jsonify({'success': False, 'message': result.get('error', 'Update failed')})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000, debug=True)

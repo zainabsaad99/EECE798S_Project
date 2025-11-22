@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Content Agent - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/linkedin_agent.css') }}">
+</head>
+<body>
+    <!-- Include sidebar component -->
+    {% include 'components/sidebar.html' %}
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="linkedin-agent-main">
+            <div class="container">
+                <div class="agent-header">
+                    <h1 class="agent-title">LinkedIn Content Agent</h1>
+                    <p class="agent-description">Generate LinkedIn posts using AI-powered content creation</p>
+                </div>
+
+                <!-- Step 1: Configuration -->
+                <div class="agent-section" id="configSection">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 1: Configuration</h2>
+                        <p class="section-description">Optionally specify a style reference profile. All other settings (LinkedIn URL, cookie, sheet URL) are configured in .env file or your account profile.</p>
+                    </div>
+
+                    <form id="configForm" class="agent-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="style_profile_url" class="form-label">
+                                    Style Reference Profile URL (Optional)
+                                    <span class="form-hint" style="display: block; margin-top: 0.25rem; font-weight: normal;">Leave empty to use your own profile as style reference</span>
+                                </label>
+                                <input type="url" id="style_profile_url" name="style_profile_url" class="form-input" placeholder="https://www.linkedin.com/in/styleprofile (optional)">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="runAgentBtn" class="btn btn-primary">
+                                <span class="btn-text">Run Agent</span>
+                                <span class="btn-loader" style="display: none;">Processing...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Step 2: Results -->
+                <div class="agent-section" id="resultsSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Your Interests and Preferred Tone</h2>
+                        <p class="section-description">Review extracted keywords, style notes, and trend suggestions</p>
+                    </div>
+
+                    <div class="results-grid">
+                        <div class="result-card">
+                            <h3 class="result-title">Extracted Keywords</h3>
+                            <div id="keywordsDisplay" class="result-content"></div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3 class="result-title">Writing Style Notes</h3>
+                            <div id="styleDisplay" class="result-content"></div>
+                        </div>
+
+                        <div class="result-card full-width">
+                            <h3 class="result-title">Trend Suggestions</h3>
+                            <div id="trendsDisplay" class="result-content"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Generate Post -->
+                <div class="agent-section" id="generateSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 3: Generate Post</h2>
+                        <p class="section-description">Choose a trend or enter a custom topic</p>
+                    </div>
+
+                    <div class="generate-form">
+                        <div class="form-group">
+                            <label for="trendSelect" class="form-label">Select a Suggested Trend</label>
+                            <select id="trendSelect" class="form-input">
+                                <option value="">-- Select a trend --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="manualTopic" class="form-label">Or Enter Custom Topic</label>
+                            <input type="text" id="manualTopic" class="form-input" placeholder="Enter your custom topic here...">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="generatePostBtn" class="btn btn-primary">
+                                <span class="btn-text">Generate LinkedIn Post</span>
+                                <span class="btn-loader" style="display: none;">Generating...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="post-display" id="postDisplay" style="display: none;">
+                        <h3 class="post-title">Generated Post</h3>
+                        <textarea id="postContent" class="post-content-editable" rows="10"></textarea>
+                        <div class="post-actions">
+                            <button type="button" id="regeneratePostBtn" class="btn btn-secondary">Regenerate Post</button>
+                            <button type="button" id="copyPostBtn" class="btn btn-secondary">Copy Post</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Save & Autopost -->
+                <div class="agent-section" id="saveSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Step 4: Save & Autopost</h2>
+                        <p class="section-description">Save to Google Sheets and optionally autopost</p>
+                    </div>
+
+                    <div class="save-form">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="saveToSheet" checked>
+                                <span>Save to Google Sheet</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autopost">
+                                <span>Autopost with PhantomBuster</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="clearSheetAfterPost" checked>
+                                <span>Clear sheet after posting</span>
+                            </label>
+                        </div>
+
+                        <!-- LinkedIn Session Cookie (only required for autopost) -->
+                        <div class="form-group" id="sessionCookieGroup" style="display: none;">
+                            <label for="autopost_session_cookie" class="form-label">
+                                LinkedIn Session Cookie (Required for Autopost) *
+                            </label>
+                            <input type="password" id="autopost_session_cookie" name="autopost_session_cookie" 
+                                   class="form-input" 
+                                   placeholder="Enter your LinkedIn session cookie (or reuse from scraping)">
+                            <small class="form-hint">
+                                How to get: F12 → Application → Cookies → linkedin.com → Copy "li_at" value.
+                                <br>Note: If you already entered this when running the agent, you can reuse it or enter a new one.
+                            </small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="saveAndPostBtn" class="btn btn-primary">
+                                <span class="btn-text">Save and Post</span>
+                                <span class="btn-loader" style="display: none;">Processing...</span>
+                            </button>
+                        </div>
+
+                        <div id="saveResults" class="save-results"></div>
+                    </div>
+                </div>
+
+                <!-- Status Messages -->
+                <div id="statusMessages" class="status-messages"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        // Pass API keys from backend to frontend (hidden from user)
+        // Note: LinkedIn session cookie is NOT included - user enters it when autoposting
+        window.ENV_CONFIG = {
+            openai_api_key: '{{ env_config.openai_api_key }}',
+            phantombuster_api_key: '{{ env_config.phantombuster_api_key }}',
+            firecrawl_api_key: '{{ env_config.firecrawl_api_key }}',
+            user_agent: '{{ env_config.user_agent }}',
+            google_sheet_url: '{{ env_config.google_sheet_url }}',
+            linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
+            user_linkedin_url: '{{ env_config.user_linkedin_url }}'
+        };
+    </script>
+    <script src="{{ url_for('static', filename='js/linkedin_agent.js') }}"></script>
+</body>
+</html>
+
