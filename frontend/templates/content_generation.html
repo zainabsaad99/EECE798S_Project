@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Content Studio - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/content_generation.css') }}">
+</head>
+<body class="app-page">
+    {% include 'components/sidebar.html' %}
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="app-main" data-content-api="{{ content_api }}">
+            <header class="app-header">
+                <div class="app-header-content">
+                    <div class="header-left">
+                        <a href="{{ url_for('home') }}" class="back-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Back to Dashboard
+                        </a>
+                    </div>
+                    <div class="header-right">
+                        <div class="app-logo">
+                            <span class="logo-text">Agentic Ads</span>
+                            <span class="logo-emoji">✨</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <section class="app-container">
+                <div class="app-grid">
+                    <div class="form-section">
+                        <div class="form-card">
+                            <div class="form-header">
+                                <p class="eyebrow">Campaign Brief</p>
+                                <h2 class="form-title">Get Perfect Advertisement with Agentic Ads</h2>
+                                <p class="subheading">AI orchestrates posters, copy, and reels from a single brief.</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="brandSummary">Brand Summary</label>
+                                <textarea id="brandSummary" rows="3" placeholder="Describe your brand or offer..."></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="campaignGoal">Campaign Goal</label>
+                                    <input type="text" id="campaignGoal" placeholder="e.g., Launch new service">
+                                </div>
+                                <div class="form-group">
+                                    <label for="targetAudience">Target Audience</label>
+                                    <input type="text" id="targetAudience" placeholder="e.g., SaaS marketing leads">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="adText">Your Ad Text</label>
+                                <textarea id="adText" rows="8" placeholder="Enter your ad text here..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="logoUpload">Your Logo</label>
+                                <input type="file" id="logoUpload" accept="image/*">
+                                <small class="form-hint">PNG, JPG up to 5 MB.</small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="logoPosition">Logo Position</label>
+                                    <select id="logoPosition">
+                                        <option value="bottom-right">Bottom Right</option>
+                                        <option value="bottom-left">Bottom Left</option>
+                                        <option value="top-right">Top Right</option>
+                                        <option value="top-left">Top Left</option>
+                                        <option value="center">Center</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logoScale">Logo Scale (0.1 - 0.3)</label>
+                                    <input type="number" id="logoScale" min="0.1" max="0.3" step="0.01" value="0.18">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="toneSelect">Tone</label>
+                                    <select id="toneSelect">
+                                        <option value="professional">Professional</option>
+                                        <option value="casual">Casual</option>
+                                        <option value="energetic">Energetic</option>
+                                        <option value="fun">Fun</option>
+                                        <option value="witty">Witty</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="platformSelect">Platform</label>
+                                    <select id="platformSelect">
+                                        <option value="instagram_feed">Instagram Feed</option>
+                                        <option value="instagram_story">Instagram Story</option>
+                                        <option value="linkedin">LinkedIn</option>
+                                        <option value="twitter">Twitter</option>
+                                        <option value="tiktok">TikTok</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Output Types</label>
+                                <p class="form-hint">Select at least one output type to generate.</p>
+                                <div class="output-types">
+                                    <button type="button" class="output-type" data-output="text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
+                                        </svg>
+                                        <span>Rewritten Text</span>
+                                    </button>
+                                    <button type="button" class="output-type" data-output="poster">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <path d="m21 15-5-5L5 21"></path>
+                                        </svg>
+                                        <span>Poster Image</span>
+                                    </button>
+                                    <button type="button" class="output-type" data-output="video">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                            <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                        </svg>
+                                        <span>Video Reel</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button class="btn primary generate-button" id="generateBtn" disabled>Generate Ad</button>
+                            <p class="status-text" id="generationStatus"></p>
+                        </div>
+                    </div>
+
+                    <div class="results-section">
+                        <div class="results-placeholder" id="resultsPlaceholder">
+                            <p>Fill the brief and click Generate to see AI-created content.</p>
+                        </div>
+                        <div class="generating-state" id="generatingState">
+                            <div class="spinner"></div>
+                            <h3>Creating your perfect ad...</h3>
+                            <p>Our agent collective is orchestrating vectors, copy, and video snippets.</p>
+                        </div>
+
+                        <div class="results-card" id="resultsCard" style="display: none;">
+                            <h3>Generated Assets</h3>
+
+                            <div class="result-item" data-result="text">
+                                <div class="result-header">
+                                    <div class="result-header-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
+                                        </svg>
+                                        <span>Generated Text</span>
+                                    </div>
+                                    <button class="btn ghost action-button" data-action="copy">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                        Copy
+                                    </button>
+                                </div>
+                                <div class="result-content">
+                                    <p id="generatedText"></p>
+                                    <p class="text-ready">✅ Text ready for use</p>
+                                </div>
+                            </div>
+
+                            <div class="result-item" data-result="poster">
+                                <div class="result-header">
+                                    <div class="result-header-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <path d="m21 15-5-5L5 21"></path>
+                                        </svg>
+                                        <span>Generated Poster</span>
+                                    </div>
+                                    <button class="btn ghost action-button" data-action="download">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        Download
+                                    </button>
+                                </div>
+                                <div class="result-content">
+                                    <div class="poster-display" id="posterPreview">
+                                        <div class="poster-placeholder">
+                                            <span>Poster preview placeholder</span>
+                                        </div>
+                                        <span class="poster-ready">Ready</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="result-item" data-result="video">
+                                <div class="result-header">
+                                    <div class="result-header-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                            <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                        </svg>
+                                        <span>Generated Video</span>
+                                    </div>
+                                    <button class="btn ghost action-button" data-action="download" disabled>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        Download
+                                    </button>
+                                </div>
+                                <div class="result-content">
+                                    <div class="video-placeholder">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                            <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                        </svg>
+                                        <p>Video preview unavailable</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/content_generation.js') }}"></script>
+</body>
+</html>

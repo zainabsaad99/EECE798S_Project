@@ -102,6 +102,24 @@ def home():
         print(f"Error fetching user data: {e}")
         return redirect(url_for('signin'))
 
+
+@app.route('/content-studio')
+@login_required
+def content_studio():
+    """Content generation workspace"""
+    user = session.get('user') or {}
+    user_id = user.get('user_id')
+    profile = None
+    try:
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                profile = response.json().get('user')
+    except Exception as exc:
+        print(f"Error fetching user profile for content studio: {exc}")
+    backend_base = BACKEND_API_URL.rstrip('/')
+    content_api = f"{backend_base}/api/content/generate"
+    return render_template('content_generation.html', user=profile or user, content_api=content_api)
 # LinkedIn Agent page
 @app.route('/linkedin-agent')
 @login_required
