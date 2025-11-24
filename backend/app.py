@@ -23,13 +23,56 @@ from linkedin_agent import (
     extract_keywords_tool,
     infer_style_tool
 )
-
 from content_agent import (
     generate_social_content_and_images,
     SUPPORTED_PLATFORMS,
     DEFAULT_LOGO_POSITION,
     DEFAULT_LOGO_SCALE,
 )
+from gap_analysis import run_gap_analysis
+
+# Load environment variables from .env file at project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
+logging.basicConfig(level=logging.DEBUG)
+app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend requests
+
+DB_HOST = os.getenv('DB_HOST', 'db')  # 'db' matches the service name in docker-compose.yml
+DB_PORT = os.getenv('DB_PORT', '3306')
+DB_NAME = os.getenv('DB_NAME', 'Hackathon')
+DB_USER = os.getenv('DB_USER', 'root')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
+MAX_LOGO_UPLOAD_BYTES = int(os.getenv('MAX_LOGO_UPLOAD_BYTES', 5 * 1024 * 1024))
+MAX_REFERENCE_IMAGE_BYTES = int(os.getenv('MAX_REFERENCE_IMAGE_BYTES', 10 * 1024 * 1024))
+
+DEFAULT_GAP_KEYWORDS = [
+    {"id": "fallback-1", "keyword": "AI copilots", "category": "Product"},
+    {"id": "fallback-2", "keyword": "Zero-party data", "category": "Data"},
+    {"id": "fallback-3", "keyword": "Workflow automation", "category": "Operations"},
+    {"id": "fallback-4", "keyword": "Revenue analytics", "category": "Growth"},
+]
+
+DEFAULT_GAP_BUSINESSES = [
+    {
+        "name": "Lumen Analytics",
+        "strapline": "Predictive marketing OS for retail",
+        "audience": "Retail CMOs & merchandising teams",
+        "products": [
+            {
+                "name": "Aster Dashboards",
+                "description": "Self-serve retail KPIs and shopper behaviors",
+                "keywords": ["retail analytics", "dashboards"],
+            },
+            {
+                "name": "Pulse AI Alerts",
+                "description": "Signals when campaigns underperform in specific regions",
+                "keywords": ["anomaly detection", "campaign health"],
+            },
+        ],
+    }
+]
 
 # Load environment variables from .env file at project root
 env_path = Path(__file__).parent.parent / '.env'
@@ -45,6 +88,7 @@ DB_NAME = os.getenv('DB_NAME', 'NextGenAI')
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
 MAX_LOGO_UPLOAD_BYTES = int(os.getenv('MAX_LOGO_UPLOAD_BYTES', 5 * 1024 * 1024))
+MAX_REFERENCE_IMAGE_BYTES = int(os.getenv('MAX_REFERENCE_IMAGE_BYTES', 10 * 1024 * 1024))
 
 def get_db_connection():
     conn = mysql.connector.connect(
@@ -89,6 +133,27 @@ def _safe_float(value, default):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+def _parse_keywords_blob(value):
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+    except Exception:
+        pass
+    tokens = []
+    for token in text.replace('\n', ',').split(','):
+        cleaned = token.strip().strip('`')
+        if cleaned:
+            tokens.append(cleaned)
+    return tokens
 
 
 # ----------------------------- SIGNUP -----------------------------
@@ -1233,6 +1298,7 @@ def api_generate_content():
         payload = request.get_json(silent=True) or {}
 
     logo_file = request.files.get('logo_file') if request.files else None
+    reference_image_file = request.files.get('reference_image') if request.files else None
 
     platforms = _parse_platforms(payload.get('platforms'))
     required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
@@ -1254,6 +1320,30 @@ def api_generate_content():
         if len(logo_bytes) > MAX_LOGO_UPLOAD_BYTES:
             return jsonify({"success": False, "message": "Logo file too large. Max 5MB."}), 400
 
+    reference_image_bytes = None
+    reference_image_name = None
+    if reference_image_file:
+        reference_image_bytes = reference_image_file.read()
+        if len(reference_image_bytes) > MAX_REFERENCE_IMAGE_BYTES:
+            return jsonify({"success": False, "message": "Reference image too large. Max 10MB."}), 400
+        reference_image_name = reference_image_file.filename or "reference.png"
+
+    proposal_context = payload.get('proposal_context')
+    if isinstance(proposal_context, str):
+        try:
+            proposal_context = json.loads(proposal_context)
+        except json.JSONDecodeError:
+            proposal_context = None
+
+    outputs = payload.get('outputs')
+    if isinstance(outputs, str):
+        try:
+            outputs = json.loads(outputs)
+        except json.JSONDecodeError:
+            outputs = []
+    if not isinstance(outputs, list):
+        outputs = []
+
     try:
         num_posts = int(payload.get('num_posts_per_platform', 3))
     except (TypeError, ValueError):
@@ -1267,11 +1357,15 @@ def api_generate_content():
             platforms=platforms,
             num_posts_per_platform=num_posts,
             extra_instructions=payload.get('extra_instructions', ''),
+            proposal_context=proposal_context,
+            outputs=outputs,
             image_size=image_size,
             platform_image_sizes=size_overrides,
             logo_bytes=logo_bytes,
             logo_position=logo_position,
             logo_scale=logo_scale,
+            reference_image_bytes=reference_image_bytes,
+            reference_image_name=reference_image_name,
         )
     except ValueError as err:
         return jsonify({"success": False, "message": str(err), "supported_platforms": SUPPORTED_PLATFORMS}), 400
@@ -1283,6 +1377,247 @@ def api_generate_content():
 
     return jsonify({"success": True, "plan": plan}), 200
 
+@app.route('/api/gap/keywords', methods=['GET'])
+def gap_keywords():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        payload = request.get_json(silent=True) or {}
+        user_id = payload.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id is required"}), 400
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id, keyword, category, importance
+            FROM user_keywords
+            WHERE user_id=%s
+            ORDER BY COALESCE(importance, 0) DESC, keyword ASC
+            """,
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        return jsonify({"success": True, "keywords": rows}), 200
+    except mysql.connector.Error as db_err:
+        if db_err.errno == 1146:  # table missing
+            app.logger.warning("user_keywords table missing; returning defaults")
+            return jsonify({"success": True, "keywords": DEFAULT_GAP_KEYWORDS}), 200
+        app.logger.exception("Failed to load gap keywords (db)")
+        return jsonify({"success": False, "message": str(db_err)}), 500
+    except Exception as err:
+        app.logger.exception("Failed to load gap keywords")
+        return jsonify({"success": False, "message": str(err)}), 500
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route('/api/gap/businesses', methods=['GET'])
+def gap_businesses():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        payload = request.get_json(silent=True) or {}
+        user_id = payload.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id is required"}), 400
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        cursor.execute(
+            """
+            SELECT business_name, business_strapline, business_audience,
+                   product_name, product_description, pricing, product_keywords
+            FROM user_products
+            WHERE user_id=%s
+            ORDER BY business_name, product_name
+            """,
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        default_business = user.get('company') or user.get('full_name') or 'My Business'
+        default_audience = user.get('industry') or 'General audience'
+        default_strapline = user.get('marketing_goals') or f"{default_business} catalog"
+        businesses = {}
+
+        for row in rows:
+            name = row.get('business_name') or default_business
+            biz = businesses.setdefault(
+                name,
+                {
+                    "name": name,
+                    "strapline": row.get('business_strapline') or default_strapline,
+                    "audience": row.get('business_audience') or default_audience,
+                    "products": [],
+                },
+            )
+            if not biz.get('strapline'):
+                biz['strapline'] = row.get('business_strapline') or default_strapline
+            if not biz.get('audience'):
+                biz['audience'] = row.get('business_audience') or default_audience
+            biz['products'].append(
+                {
+                    "name": row.get('product_name') or 'Unnamed Product',
+                    "description": row.get('product_description') or '',
+                    "pricing": row.get('pricing') or '',
+                    "keywords": _parse_keywords_blob(row.get('product_keywords')),
+                }
+            )
+
+        business_list = list(businesses.values())
+        total_products = sum(len(biz['products']) for biz in business_list)
+
+        return jsonify({
+            "success": True,
+            "businesses": business_list,
+            "meta": {
+                "total_businesses": len(business_list),
+                "total_products": total_products,
+            },
+        }), 200
+    except mysql.connector.Error as db_err:
+        if db_err.errno == 1146:
+            app.logger.warning("user_products table missing; returning defaults")
+            return jsonify({
+                "success": True,
+                "businesses": DEFAULT_GAP_BUSINESSES,
+                "meta": {
+                    "total_businesses": len(DEFAULT_GAP_BUSINESSES),
+                    "total_products": sum(len(biz["products"]) for biz in DEFAULT_GAP_BUSINESSES),
+                },
+            }), 200
+        app.logger.exception("Failed to load business catalog (db)")
+        return jsonify({"success": False, "message": str(db_err)}), 500
+    except Exception as err:
+        app.logger.exception("Failed to load business catalog")
+        return jsonify({"success": False, "message": str(err)}), 500
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/gap/trends', methods=['POST'])
+def gap_trends():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id')
+    keywords = data.get('keywords') or []
+    keyword_ids = data.get('keyword_ids') or []
+
+    if keyword_ids:
+        if not user_id:
+            return jsonify({"success": False, "message": "user_id is required when selecting keyword IDs"}), 400
+        try:
+            ids = [int(k) for k in keyword_ids if str(k).isdigit()]
+        except Exception:
+            return jsonify({"success": False, "message": "Invalid keyword_ids"}), 400
+        if ids:
+            conn = None
+            cursor = None
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                placeholders = ','.join(['%s'] * len(ids))
+                cursor.execute(
+                    f"SELECT keyword FROM user_keywords WHERE user_id=%s AND id IN ({placeholders})",
+                    tuple([user_id, *ids])
+                )
+                rows = cursor.fetchall()
+                keywords.extend(row[0] for row in rows if row and row[0])
+            except mysql.connector.Error as db_err:
+                if db_err.errno == 1146:
+                    app.logger.warning("user_keywords table missing during trend fetch; continuing with provided keywords")
+                else:
+                    raise
+            finally:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    keywords = [kw.strip() for kw in keywords if isinstance(kw, str) and kw.strip()]
+    if not keywords:
+        return jsonify({"success": False, "message": "Select at least one keyword"}), 400
+
+    firecrawl_api_key = os.getenv('FIRECRAWL_API_KEY')
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    if not firecrawl_api_key or not openai_api_key:
+        return jsonify({"success": False, "message": "Firecrawl/OpenAI keys are not configured."}), 500
+
+    try:
+        trend_items = fetch_trends_firecrawl(
+            firecrawl_api_key=firecrawl_api_key,
+            openai_api_key=openai_api_key,
+            keywords=keywords,
+            topic=data.get('topic')
+        )
+        formatted = []
+        prefix = ', '.join(keywords[:3])
+        for item in trend_items:
+            if prefix:
+                summary = f"{item.title} is rising within {prefix} conversations."
+            else:
+                summary = f"{item.title} is rising according to recent web signals."
+            if item.url:
+                summary += f" Source: {item.url}"
+            formatted.append({
+                "trend": item.title,
+                "description": summary,
+                "keywords": keywords,
+                "url": item.url,
+                "source": item.source or 'firecrawl'
+            })
+        return jsonify({"success": True, "trends": formatted}), 200
+    except Exception as err:
+        app.logger.exception("Failed to fetch trends for gap analysis")
+        return jsonify({"success": False, "message": str(err)}), 500
+
+
+@app.route('/api/gap-analysis', methods=['POST'])
+def api_gap_analysis():
+    payload = request.get_json(silent=True) or {}
+    businesses = payload.get('businesses')
+    trends = payload.get('trends')
+    if not isinstance(businesses, list) or not businesses:
+        return jsonify({"success": False, "message": "Provide businesses as a non-empty list."}), 400
+    if not isinstance(trends, list) or not trends:
+        return jsonify({"success": False, "message": "Provide trends as a non-empty list."}), 400
+ 
+    try:
+        analysis = run_gap_analysis(
+            businesses=businesses,
+            trends=trends,
+            additional_context=payload.get('context', ''),
+            generate_product_proposals=bool(payload.get('generate_proposals')),
+        )
+    except ValueError as err:
+        return jsonify({"success": False, "message": str(err)}), 400
+    except RuntimeError as err:
+        return jsonify({"success": False, "message": str(err)}), 500
+    except Exception as err:
+        app.logger.exception("Gap analysis failed")
+        return jsonify({"success": False, "message": "Gap analysis failed."}), 500
+ 
+    return jsonify({"success": True, "analysis": analysis}), 200
 
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':

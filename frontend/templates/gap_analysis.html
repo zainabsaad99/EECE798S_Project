@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gap Analysis - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/gap_analysis.css') }}">
+</head>
+<body class="gap-page">
+    {% include 'components/sidebar.html' %}
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="gap-main"
+              data-gap-api="{{ gap_api }}"
+              data-keywords-api="{{ gap_keywords_api }}"
+              data-business-api="{{ gap_business_api }}"
+              data-trends-api="{{ gap_trends_api }}"
+              data-user-id="{{ user_id or '' }}"
+              data-content-studio-url="{{ url_for('content_studio') }}"
+              data-proposal-content-url="{{ url_for('proposal_content') }}">
+            <section class="gap-hero">
+                <div class="hero-text">
+                    <p class="hero-pill">Opportunity Radar</p>
+                    <h1>NextGen Gap Analysis</h1>
+                    <p class="subline">Fuse your product intelligence with live trend signals to expose hidden whitespace fast.</p>
+                    <div class="hero-visual" aria-hidden="true">
+                        <img src="https://media.giphy.com/media/xTiTnxpQ3ghPiB2Hp6/giphy.gif" alt="Animated radar visualization" loading="lazy">
+                        <div class="hero-visual-caption">
+                            <span class="caption-eyebrow">Live Coverage Pulse</span>
+                            <p class="caption-title">AI sweeps the market feed and flags risks in real time.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-panel">
+                    <h3>Blueprint</h3>
+                    <ul>
+                        <li>Keywords + products auto sync from your workspace</li>
+                        <li>Firecrawl pulls live trend signals for those themes</li>
+                        <li>AI maps coverage, gaps, and next bets</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="gap-progress" aria-live="polite">
+                <div class="progress-step active" data-step="keywords">1. Focus Keywords</div>
+                <div class="progress-step" data-step="trends">2. Trend Signals</div>
+                <div class="progress-step" data-step="insights">3. Insights</div>
+            </section>
+
+            <section class="gap-intake">
+                <div class="gap-selection-row">
+                    <div class="keyword-column">
+                        <div class="gap-card keyword-card">
+                            <div class="card-header-row">
+                                <div>
+                                    <h2>Focus Keywords</h2>
+                                    <p class="card-desc">Pick the saved keywords you want to explore.</p>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn btn-outline btn-sm" id="refreshKeywordsBtn" type="button">Refresh</button>
+                                    <button class="btn btn-outline btn-sm" id="selectAllKeywordsBtn" type="button">Select All</button>
+                                    <button class="btn btn-outline btn-sm" id="clearKeywordsBtn" type="button">Clear</button>
+                                </div>
+                            </div>
+                            <div class="keyword-controls">
+                                <input type="search" id="keywordSearch" class="form-input" placeholder="Filter keywords…" aria-label="Filter keywords">
+                                <span class="keyword-count" id="keywordCountBadge">0 selected</span>
+                            </div>
+                            <div id="keywordList" class="chip-grid" role="listbox" aria-label="Keyword list"></div>
+                            <p class="muted-text" id="keywordEmptyState">Loading keywords…</p>
+                            <div class="keyword-actions">
+                                <p class="muted-text">Select one or more keywords, then pull fresh Firecrawl signals.</p>
+                                <button class="btn btn-primary" id="discoverTrendsBtn" type="button">Find Trends</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gap-card trend-card hidden">
+                        <div class="card-header-row">
+                            <div>
+                                <h2>Trend Scanner</h2>
+                                <p class="card-desc">Once generated, trends appear here for review.</p>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-outline btn-sm" id="selectAllTrendsBtn" type="button">Select All</button>
+                                <button class="btn btn-outline btn-sm" id="clearTrendsBtn" type="button">Clear</button>
+                            </div>
+                        </div>
+                        <div id="trendStatusText" class="status-text"></div>
+                        <div id="trendResults" class="trend-grid"></div>
+                        <p class="muted-text" id="trendEmptyState">Select at least one keyword and click Find Trends.</p>
+                    </div>
+                </div>
+                <div class="gap-card catalog-card">
+                    <h2>Product Catalog</h2>
+                    <p class="card-desc">These products are fetched from your company workspace.</p>
+                    <div id="catalogSummary" class="catalog-summary"></div>
+                    <ul id="catalogList" class="catalog-list"></ul>
+                    <p class="muted-text" id="catalogEmptyState">Loading product catalog…</p>
+                </div>
+            </section>
+
+            <section class="gap-actions">
+                <div class="selection-pills">
+                    <span class="selection-pill" id="productCountPill">0 products loaded</span>
+                    <span class="selection-pill" id="trendCountPill">0 trends selected</span>
+                </div>
+                <div class="actions-row">
+                    <div class="actions-button-group">
+                        <button class="btn btn-primary" id="analyzeBtn">Analyze Coverage</button>
+                        <button class="btn btn-outline" id="generateContentBtn" type="button" disabled>Generate Content</button>
+                    </div>
+                    <p class="status-text" id="gapStatus"></p>
+                </div>
+            </section>
+
+            <section class="gap-results">
+                <div class="gap-results-placeholder" id="resultsPlaceholder">
+                    <p>Provide business + trend data to see coverage strengths, weak spots, and gaps.</p>
+                </div>
+
+                <div class="gap-loading" id="resultsLoading">
+                    <div class="spinner"></div>
+                    <p>Building embeddings & insights…</p>
+                </div>
+
+                <div class="gap-results-body" id="resultsBody">
+                    <div class="dashboard-controls">
+                        <label class="toggle-chip">
+                            <input type="checkbox" data-panel-target="recommendationsPanel" checked>
+                            <span>Recommendations</span>
+                        </label>
+                        <label class="toggle-chip">
+                            <input type="checkbox" data-panel-target="proposalsPanel" checked>
+                            <span>Product Proposals</span>
+                        </label>
+                        <label class="toggle-chip">
+                            <input type="checkbox" data-panel-target="catalogPanel" checked>
+                            <span>Catalog Insights</span>
+                        </label>
+                        <label class="toggle-chip">
+                            <input type="checkbox" data-panel-target="opportunityPanel" checked>
+                            <span>Opportunity Map</span>
+                        </label>
+                        <label class="toggle-chip">
+                            <input type="checkbox" data-panel-target="actionPlanPanel" checked>
+                            <span>Action Plan</span>
+                        </label>
+                    </div>
+                    <div class="coverage-filters">
+                        <button class="chip active" data-filter="all">All</button>
+                        <button class="chip" data-filter="covered">Covered</button>
+                        <button class="chip" data-filter="weak">Weak</button>
+                        <button class="chip" data-filter="gap">Gaps</button>
+                    </div>
+
+                    <div class="coverage-summaries">
+                        <div class="coverage-card" id="coveredCard">
+                            <h3>Covered</h3>
+                            <ul></ul>
+                        </div>
+                        <div class="coverage-card" id="weakCard">
+                            <h3>Weak Coverage</h3>
+                            <ul></ul>
+                        </div>
+                        <div class="coverage-card" id="gapCard">
+                            <h3>Gaps</h3>
+                            <ul></ul>
+                        </div>
+                    </div>
+
+                    <div class="coverage-summary-card">
+                        <h3>Coverage Summary</h3>
+                        <div class="coverage-summary-grid" id="coverageSummary"></div>
+                    </div>
+
+                    <div class="insights-card">
+                        <h3>Insight Summary</h3>
+                        <div id="insightSummary" class="summary-text"></div>
+                        <button class="btn btn-outline btn-sm" id="copySummaryBtn">Copy Summary</button>
+                    </div>
+
+                    <div id="recommendationsPanel">
+                        <div class="recommendations-card">
+                            <div class="card-header-row">
+                                <h3>Recommendations</h3>
+                                <button class="btn btn-outline btn-sm" id="copyRecommendationsBtn">Copy</button>
+                            </div>
+                            <div id="recommendationsList"></div>
+                        </div>
+                    </div>
+
+                    <div id="proposalsPanel">
+                        <div class="proposals-card">
+                            <div class="card-header-row">
+                                <h3>Product Proposals</h3>
+                                <button class="btn btn-outline btn-sm" id="copyProposalsBtn">Copy</button>
+                                <button class="btn btn-outline btn-sm" id="viewProposalsModalBtn">View Details</button>
+                            </div>
+                            <div class="proposal-filters">
+                                <span>Filter:</span>
+                                <div class="chip-group">
+                                    <button class="chip active" data-proposal-filter="all">All</button>
+                                    <button class="chip" data-proposal-filter="gap">Gaps</button>
+                                    <button class="chip" data-proposal-filter="weak">Weak Coverage</button>
+                                </div>
+                            </div>
+                            <div class="proposal-view-toggle">
+                                <button class="view-chip active" data-proposal-view="cards" type="button">Card View</button>
+                                <button class="view-chip" data-proposal-view="compare" type="button">Compare View</button>
+                            </div>
+                            <div class="proposal-panels">
+                                <div id="productProposalsList" class="proposal-cards"></div>
+                                <div id="productProposalsCompare" class="proposal-compare hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="catalog-grid dashboard-panel" id="catalogPanel">
+                    <div class="catalog-card">
+                            <h3>Catalog Health</h3>
+                            <div id="catalogStats"></div>
+                            <div class="chart-wrapper">
+                                <canvas id="catalogChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        <div class="catalog-card">
+                            <h3>Pricing Signals</h3>
+                            <div id="pricingStats"></div>
+                        </div>
+                        <div class="catalog-card">
+                            <h3>Content Quality</h3>
+                            <div id="descriptionStats"></div>
+                        </div>
+                    </div>
+
+                    <div class="opportunity-card dashboard-panel" id="opportunityPanel">
+                        <div class="card-header-row">
+                            <h3>Product ↔ Opportunity Map</h3>
+                            <button class="btn btn-outline btn-sm" id="exportOpportunitiesBtn">Download CSV</button>
+                        </div>
+                        <table id="opportunityTable">
+                            <thead>
+                                <tr>
+                                    <th>Trend</th>
+                                    <th>Closest Product</th>
+                                    <th>Business</th>
+                                    <th>Insight</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-plan-card dashboard-panel" id="actionPlanPanel">
+                        <h3>Action Plan</h3>
+                        <ul id="actionPlanList"></ul>
+                    </div>
+
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="proposalPromptModal">
+        <div class="modal-card">
+            <button class="modal-close" data-close-modal="proposalPromptModal">&times;</button>
+            <h3>Generate Product Proposals?</h3>
+            <p class="muted-text">
+                We can optionally generate AI-powered product concepts for each detected trend gap. This may take a few extra seconds and uses additional tokens.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="skipProposalBtn">Skip</button>
+                <button class="btn btn-primary" id="confirmProposalBtn">Generate Proposals</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="proposalDetailsModal">
+        <div class="modal-card modal-large">
+            <button class="modal-close" data-close-modal="proposalDetailsModal">&times;</button>
+            <div class="modal-header">
+                <div>
+                    <h3>Product Proposal Brief</h3>
+                    <p class="muted-text">Detailed extension ideas mapped to each uncovered trend.</p>
+                </div>
+                <button class="btn btn-outline" id="downloadProposalsBtn">Download</button>
+            </div>
+            <div class="modal-body" id="proposalDetailsBody"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/gap_analysis.js') }}"></script>
+</body>
+</html>
