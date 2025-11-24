@@ -31,6 +31,7 @@ if (profileForm) {
 }
 
 // Company Form Handler
+// Company Form Handler
 const companyForm = document.getElementById("companyForm")
 if (companyForm) {
   companyForm.addEventListener("submit", async (e) => {
@@ -38,16 +39,23 @@ if (companyForm) {
 
     const formData = new FormData(companyForm)
     const linkedinUrl = formData.get("linkedin")
+    const websiteUrl = formData.get("website")
     
-    // Check if LinkedIn URL is provided and required
+    // Require LinkedIn
     if (!linkedinUrl || linkedinUrl.trim() === '') {
       alert("LinkedIn Profile URL is required to use the LinkedIn Agent feature.")
       return
     }
 
+    // ⭐ NEW: Require Website
+    if (!websiteUrl || websiteUrl.trim() === '') {
+      alert("Company Website is required before saving.")
+      return
+    }
+
     const data = {
       company: formData.get("company"),
-      website: formData.get("website"),
+      website: websiteUrl,
       linkedin: linkedinUrl,
       industry: formData.get("industry"),
       company_size: formData.get("company_size"),
@@ -99,4 +107,57 @@ if (goalsForm) {
 
     updateAccount(data)
   })
+}
+
+// JSON Upload Form Handler
+const jsonUploadForm = document.getElementById("jsonUploadForm");
+if (jsonUploadForm) {
+  jsonUploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const fileInput = document.getElementById("jsonFile");
+    const file = fileInput.files[0];
+
+    if (!file) {
+      alert("Please select a JSON file to upload.");
+      return;
+    }
+
+    if (!file.name.endsWith(".json")) {
+      alert("Only JSON files are allowed.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const submitBtn = jsonUploadForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Uploading...";
+
+    try {
+      const res = await fetch("/account/upload-json", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        alert(result.message || "JSON uploaded/updated successfully!");
+      } else {
+        alert(result.message || "Error uploading JSON.");
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred.");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      // Optional: reset file input
+      fileInput.value = "";
+    }
+  });
 }
