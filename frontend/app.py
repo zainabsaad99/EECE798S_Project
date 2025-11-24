@@ -120,6 +120,23 @@ def content_studio():
     backend_base = BACKEND_API_URL.rstrip('/')
     content_api = f"{backend_base}/api/content/generate"
     return render_template('content_generation.html', user=profile or user, content_api=content_api)
+
+@app.route('/proposal-content')
+@login_required
+def proposal_content():
+    user = session.get('user') or {}
+    user_id = user.get('user_id')
+    profile = None
+    try:
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                profile = response.json().get('user')
+    except Exception as exc:
+        print(f"Error fetching user profile for proposal content: {exc}")
+    backend_base = BACKEND_API_URL.rstrip('/')
+    content_api = f"{backend_base}/api/content/generate"
+    return render_template('proposal_content.html', user=profile or user, content_api=content_api)
 # LinkedIn Agent page
 @app.route('/linkedin-agent')
 @login_required
@@ -201,6 +218,36 @@ def linkedin_agent():
         'user_id': user_id,  # Pass user_id to template
     }
     return render_template('linkedin_agent.html', user=user_data, env_config=env_config, user_linkedin_data=user_linkedin_data)
+
+@app.route('/gap-analysis')
+@login_required
+def gap_analysis():
+    user = session.get('user') or {}
+    user_id = user.get('user_id')
+    profile = None
+    try:
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                profile = response.json().get('user')
+                if profile and profile.get('id'):
+                    user_id = profile.get('id')
+    except Exception as exc:
+        print(f"Error fetching user profile for gap analysis: {exc}")
+    backend_base = BACKEND_API_URL.rstrip('/')
+    gap_api = f"{backend_base}/api/gap-analysis"
+    keywords_api = f"{backend_base}/api/gap/keywords"
+    business_api = f"{backend_base}/api/gap/businesses"
+    trends_api = f"{backend_base}/api/gap/trends"
+    return render_template(
+        'gap_analysis.html',
+        user=profile or user,
+        user_id=user_id,
+        gap_api=gap_api,
+        gap_keywords_api=keywords_api,
+        gap_business_api=business_api,
+        gap_trends_api=trends_api,
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
