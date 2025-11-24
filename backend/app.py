@@ -24,6 +24,13 @@ from linkedin_agent import (
     infer_style_tool
 )
 
+from content_agent import (
+    generate_social_content_and_images,
+    SUPPORTED_PLATFORMS,
+    DEFAULT_LOGO_POSITION,
+    DEFAULT_LOGO_SCALE,
+)
+
 # Load environment variables from .env file at project root
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -37,6 +44,7 @@ DB_PORT = os.getenv('DB_PORT', '3306')
 DB_NAME = os.getenv('DB_NAME', 'NextGenAI')
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
+MAX_LOGO_UPLOAD_BYTES = int(os.getenv('MAX_LOGO_UPLOAD_BYTES', 5 * 1024 * 1024))
 
 def get_db_connection():
     conn = mysql.connector.connect(
@@ -48,6 +56,39 @@ def get_db_connection():
     )
     return conn
 
+
+def _parse_platforms(raw_value):
+    if isinstance(raw_value, list):
+        return raw_value
+    if isinstance(raw_value, str):
+        try:
+            loaded = json.loads(raw_value)
+            if isinstance(loaded, list):
+                return loaded
+        except Exception:
+            pass
+        return [item.strip() for item in raw_value.split(',') if item.strip()]
+    return []
+
+
+def _parse_size_overrides(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            loaded = json.loads(value)
+            if isinstance(loaded, dict):
+                return loaded
+        except Exception:
+            pass
+    return None
+
+
+def _safe_float(value, default):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # ----------------------------- SIGNUP -----------------------------
@@ -226,7 +267,7 @@ def account():
             values.append(user_id)
             cursor.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", values)
             conn.commit()
-            
+
             # If LinkedIn URL was updated, trigger scraping and wait for completion
             if linkedin_updated and new_linkedin_url:
                 try:
@@ -1177,6 +1218,70 @@ def linkedin_service_account_file():
     except Exception as e:
         app.logger.exception("Error serving service account file")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/content/generate', methods=['POST'])
+def api_generate_content():
+    """
+    Generate social content + associated image data via OpenAI.
+    Payload expects brand_summary, campaign_goal, target_audience, platforms (list).
+    """
+    is_multipart = request.content_type and 'multipart/form-data' in request.content_type.lower()
+    if is_multipart:
+        payload = request.form.to_dict()
+    else:
+        payload = request.get_json(silent=True) or {}
+
+    logo_file = request.files.get('logo_file') if request.files else None
+
+    platforms = _parse_platforms(payload.get('platforms'))
+    required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
+    missing = [field for field in required_fields if not (payload.get(field) and str(payload.get(field)).strip())]
+    if not platforms:
+        missing.append('platforms')
+
+    if missing:
+        return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    size_overrides = _parse_size_overrides(payload.get('platform_image_sizes'))
+    logo_position = (payload.get('logo_position') or DEFAULT_LOGO_POSITION).lower()
+    logo_scale = _safe_float(payload.get('logo_scale'), DEFAULT_LOGO_SCALE)
+    image_size = payload.get('image_size') or os.getenv('OPENAI_IMAGE_SIZE', '1024x1024')
+
+    logo_bytes = None
+    if logo_file:
+        logo_bytes = logo_file.read()
+        if len(logo_bytes) > MAX_LOGO_UPLOAD_BYTES:
+            return jsonify({"success": False, "message": "Logo file too large. Max 5MB."}), 400
+
+    try:
+        num_posts = int(payload.get('num_posts_per_platform', 3))
+    except (TypeError, ValueError):
+        num_posts = 3
+
+    try:
+        plan = generate_social_content_and_images(
+            brand_summary=payload['brand_summary'],
+            campaign_goal=payload['campaign_goal'],
+            target_audience=payload['target_audience'],
+            platforms=platforms,
+            num_posts_per_platform=num_posts,
+            extra_instructions=payload.get('extra_instructions', ''),
+            image_size=image_size,
+            platform_image_sizes=size_overrides,
+            logo_bytes=logo_bytes,
+            logo_position=logo_position,
+            logo_scale=logo_scale,
+        )
+    except ValueError as err:
+        return jsonify({"success": False, "message": str(err), "supported_platforms": SUPPORTED_PLATFORMS}), 400
+    except RuntimeError as err:
+        return jsonify({"success": False, "message": str(err)}), 500
+    except Exception as err:
+        app.logger.exception("Content generation failed")
+        return jsonify({"success": False, "message": "Content generation failed."}), 500
+
+    return jsonify({"success": True, "plan": plan}), 200
 
 
 # ----------------------------- RUN APP -----------------------------
