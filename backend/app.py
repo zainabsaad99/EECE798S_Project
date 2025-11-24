@@ -1619,6 +1619,442 @@ def api_gap_analysis():
  
     return jsonify({"success": True, "analysis": analysis}), 200
 
+# ----------------------------- WEBSITES -----------------------------
+@app.route('/user-has-data/<int:user_id>', methods=['GET'])
+def api_user_has_data(user_id):
+    """
+    API endpoint to check if a user already has website data.
+    Returns JSON: {"user_id": ..., "has_data": True/False}
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = "SELECT 1 FROM websites WHERE user_id = %s LIMIT 1"
+        cursor.execute(query, (user_id,))
+        result = cursor.fetchone()
+        has_data = result is not None
+
+        return jsonify({"user_id": user_id, "has_data": has_data}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+# save website data
+@app.route('/save-website-data', methods=['POST'])
+def save_website_data():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        extracted = data.get("extracted")
+
+        if not user_id or not extracted:
+            return jsonify({"success": False, "message": "Missing user_id or extracted data"}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insert into websites WITHOUT RETURNING
+        insert_query = """
+            INSERT INTO websites (
+                user_id, domain, company_name, industry, company_mission,
+                location, target_market, primary_keywords, secondary_keywords,
+                trending_topics, industry_terms, target_audience,
+                value_propositions, content_themes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        cursor.execute(insert_query, (
+            user_id,
+            extracted.get("domain"),
+            extracted.get("company_name"),
+            extracted.get("industry"),
+            extracted.get("company_mission"),
+            extracted.get("location"),
+            json.dumps(extracted.get("target_market") or []),
+            json.dumps(extracted.get("primary_keywords") or []),
+            json.dumps(extracted.get("secondary_keywords") or []),
+            json.dumps(extracted.get("trending_topics") or []),
+            json.dumps(extracted.get("industry_terms") or []),
+            extracted.get("target_audience"),
+            json.dumps(extracted.get("value_propositions") or []),
+            json.dumps(extracted.get("content_themes") or [])
+        ))
+
+        # MySQL way to get inserted ID
+        website_id = cursor.lastrowid
+
+        # Insert products
+        product_insert_query = """
+            INSERT INTO products (
+                website_id, category, name, description,
+                features, pricing, keywords
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+
+        for category, products in extracted.get("products_by_category", {}).items():
+            for product in products:
+                cursor.execute(product_insert_query, (
+                    website_id,
+                    category,
+                    product.get("name"),
+                    product.get("description"),
+                    json.dumps(product.get("features") or []),
+                    product.get("pricing"),
+                    json.dumps(product.get("keywords") or [])
+                ))
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Website data stored successfully",
+            "website_id": website_id
+        }), 201
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+# update trend_keywords for a specific website
+@app.route('/update-trend-keywords/<int:website_id>', methods=['PUT'])
+def update_trend_keywords(website_id):
+    """Update trend_keywords for a specific website"""
+    try:
+        data = request.get_json()
+        trend_keywords = data.get('trend_keywords', [])
+        
+        # Validate that trend_keywords is a list
+        if not isinstance(trend_keywords, list):
+            return jsonify({"success": False, "message": "trend_keywords must be a list"}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if website exists
+        cursor.execute("SELECT id FROM websites WHERE id = %s", (website_id,))
+        if not cursor.fetchone():
+            return jsonify({"success": False, "message": "Website not found"}), 404
+        
+        # Update trend_keywords
+        cursor.execute(
+            "UPDATE websites SET trend_keywords = %s WHERE id = %s",
+            (json.dumps(trend_keywords), website_id)
+        )
+        
+        conn.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "Trend keywords updated successfully",
+            "website_id": website_id,
+            "trend_keywords": trend_keywords
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+# get all websites for a user WITHOUT products
+@app.route('/get-websites/<int:user_id>', methods=['GET'])
+def get_websites(user_id):
+    """Get all websites for a user WITHOUT products"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT 
+                id, domain, company_name, industry, company_mission,
+                location, target_market, primary_keywords, secondary_keywords,
+                trending_topics, industry_terms, target_audience,
+                value_propositions, content_themes, created_at
+            FROM websites
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+        """
+        
+        cursor.execute(query, (user_id,))
+        websites = cursor.fetchall()
+        
+        # Parse JSON fields
+        for site in websites:
+            for field in ['target_market', 'primary_keywords', 'secondary_keywords', 
+                         'trending_topics', 'industry_terms', 'value_propositions', 'content_themes']:
+                if site.get(field):
+                    site[field] = json.loads(site[field])
+        
+        return jsonify({
+            "success": True,
+            "count": len(websites),
+            "data": websites
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+# get trend_keywords for a specific users
+@app.route('/get-trend-keywords-by-user/<int:user_id>', methods=['GET'])
+def get_trend_keywords_by_user(user_id):
+    """Get trend_keywords for all websites owned by a specific user"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT id AS website_id, domain, trend_keywords FROM websites WHERE user_id = %s",
+            (user_id,)
+        )
+
+        websites = cursor.fetchall()
+
+        if not websites:
+            return jsonify({"success": False, "message": "No websites found for this user"}), 404
+
+        # Parse JSON fields
+        for site in websites:
+            if site.get('trend_keywords'):
+                site['trend_keywords'] = json.loads(site['trend_keywords'])
+            else:
+                site['trend_keywords'] = []
+
+        return jsonify({
+            "success": True,
+            "data": websites
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+@app.route('/get-trend-keywords-list/<int:user_id>', methods=['GET'])
+def get_trend_keywords_by_user_list(user_id):
+    """Return trend_keywords in the same format as /api/gap/keywords"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT id AS website_id, domain, trend_keywords FROM websites WHERE user_id = %s",
+            (user_id,)
+        )
+        websites = cursor.fetchall()
+
+        if not websites:
+            # Still return success:true and empty list (same pattern)
+            return jsonify({"success": True, "keywords": []}), 200
+
+        keywords_output = []
+        for site in websites:
+            trend_keywords = site["trend_keywords"]
+            if trend_keywords:
+                trend_keywords = json.loads(trend_keywords)
+            else:
+                trend_keywords = []
+
+            keywords_output.append({
+                "website_id": site["website_id"],
+                "domain": site["domain"],
+                "trend_keywords": trend_keywords
+            })
+
+        return jsonify({
+            "success": True,
+            "keywords": keywords_output
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+# return all websites for a user WITH products grouped by category
+@app.route('/get-websites-with-products/<int:user_id>', methods=['GET'])
+def get_websites_with_products(user_id):
+    """Get all websites for a user WITH products grouped by category"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Get websites
+        website_query = """
+            SELECT 
+                id, domain, company_name, industry, company_mission,
+                location, target_market, primary_keywords, secondary_keywords,
+                trending_topics, industry_terms, target_audience,
+                value_propositions, content_themes, created_at
+            FROM websites
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+        """
+        
+        cursor.execute(website_query, (user_id,))
+        websites = cursor.fetchall()
+        
+        # Get products for each website
+        product_query = """
+            SELECT 
+                category, name, description, features, pricing, keywords
+            FROM products
+            WHERE website_id = %s
+            ORDER BY category, name
+        """
+        
+        for site in websites:
+            # Parse JSON fields
+            for field in ['target_market', 'primary_keywords', 'secondary_keywords', 
+                         'trending_topics', 'industry_terms', 'value_propositions', 'content_themes']:
+                if site.get(field):
+                    site[field] = json.loads(site[field])
+            
+            # Get products for this website
+            cursor.execute(product_query, (site['id'],))
+            products = cursor.fetchall()
+            
+            # Parse product JSON fields and group by category
+            products_by_category = {}
+            for product in products:
+                if product.get('features'):
+                    product['features'] = json.loads(product['features'])
+                if product.get('keywords'):
+                    product['keywords'] = json.loads(product['keywords'])
+                
+                category = product.get('category', 'Uncategorized')
+                if category not in products_by_category:
+                    products_by_category[category] = []
+                
+                products_by_category[category].append(product)
+            
+            site['products_by_category'] = products_by_category
+        
+        return jsonify({
+            "success": True,
+            "count": len(websites),
+            "data": websites
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+# take user_id and return list of website IDs
+def get_website_ids_by_user(user_id):
+    """Return a list of website IDs for a given user_id."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM websites WHERE user_id = %s", (user_id,))
+        rows = cursor.fetchall()
+        website_ids = [row[0] for row in rows]
+        return website_ids
+    except Exception as e:
+        app.logger.exception("Failed to fetch website IDs")
+        return []
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+@app.route('/account/upload-json', methods=['POST'])
+@login_required
+def upload_json():
+    user = session.get('user')
+    if not user:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    user_id = user.get('user_id')
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "No file provided"}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith('.json'):
+        return jsonify({"success": False, "message": "File must be a JSON"}), 400
+
+    try:
+        json_data = json.load(file)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Invalid JSON: {e}"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO user_json_uploads (user_id, json_data)
+            VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE 
+                json_data = VALUES(json_data),
+                updated_at = CURRENT_TIMESTAMP
+        """, (user_id, json.dumps(json_data)))
+
+        conn.commit()
+        return jsonify({"success": True, "message": "JSON uploaded successfully."}), 200
+    except Exception as e:
+        app.logger.exception("Failed to save JSON data")
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+@app.route('/api/user/<int:user_id>/json-upload', methods=['GET'])
+def get_uploaded_json_by_user(user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id, json_data, created_at, updated_at
+            FROM user_json_uploads
+            WHERE user_id=%s
+        """, (user_id,))
+        row = cursor.fetchone()
+        return jsonify({"success": True, "data": row or {}}), 200
+    finally:
+        cursor.close()
+        conn.close()
+
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':
     # Database initialization is handled by docker-compose via schema.sql

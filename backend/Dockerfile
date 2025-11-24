@@ -5,6 +5,9 @@ ENV TRANSFORMERS_CACHE=/app/model_cache
 # Set the working directory
 WORKDIR /app
 
+# Copy all files
+COPY . /app
+
 # Copy the requirements file
 COPY requirements.txt .
 
