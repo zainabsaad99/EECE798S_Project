@@ -13,6 +13,9 @@ services:
       BACKEND_URL: http://backend:5000
       FETCH_WEBSITE_URL: http://fetch_website:3001
       LLM_API_URL: http://trend_keywords:3002
+      PUBLIC_LLM_API_URL: http://localhost:3002  # Example public LLM API URL
+      PUBLIC_BACKEND_URL: http://localhost:5000
+      
     depends_on:
       - backend
     networks:

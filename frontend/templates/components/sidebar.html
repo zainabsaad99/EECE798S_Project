@@ -68,6 +68,13 @@
         </svg>
         <span>LinkedIn Agent</span>
       </a>
+           <a href="{{ url_for('upload_json') }}" class="sidebar-link {% if request.endpoint == 'upload_json' %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Upload Profile</span>
+      </a>
     </div>
 
     <div class="sidebar-section">
@@ -79,6 +86,7 @@
         </svg>
         <span>Profile</span>
       </a>
+   
       <a href="#" class="sidebar-link">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+</head>
+<body>
+    <!-- Include sidebar component -->
+    {% include 'components/sidebar.html' %}
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="account-main">
+            <div class="container">
+                <div class="account-header">
+                    <h1 class="account-title">My Account</h1>
+                    <p class="account-description">Manage your profile and marketing preferences</p>
+                </div>
+
+                <div class="account-grid">
+                    <!-- Profile Information -->
+                 
+                    <!-- Company Information -->
+                    <div class="account-card">
+                        <div class="card-header">
+                            <h2 class="card-title">Company Information</h2>
+                            <p class="card-description">Tell us about your business</p>
+                        </div>
+
+                          <form action="{{ url_for('upload_json') }}" method="POST" enctype="multipart/form-data" class="account-form">
+                            <div class="form-group">
+                                <label for="json_file" class="form-label">Select JSON file</label>
+                                <input type="file" id="json_file" name="json_file" class="form-input" accept=".json" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Upload & Extract</button>
+                        </form>
+
+                    </div>
+        
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/account.js') }}"></script>
+</body>
+</html>
