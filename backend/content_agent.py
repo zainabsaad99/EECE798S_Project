@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,7 @@ SUPPORTED_PLATFORMS = ["linkedin", "instagram_feed", "instagram_story", "twitter
 DEFAULT_TEXT_MODEL = os.getenv("OPENAI_CONTENT_MODEL", "gpt-4.1-mini")
 DEFAULT_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
 DEFAULT_IMAGE_SIZE = os.getenv("OPENAI_IMAGE_SIZE", "1024x1024")
+DEFAULT_VIDEO_MODEL = os.getenv("OPENAI_VIDEO_MODEL", "sora-2")
 
 def _env_float(name: str, default: float) -> float:
     try:
@@ -162,16 +164,72 @@ Return only valid JSON with the structure:
     return data
 
 
-def generate_image_with_gpt(prompt: str, size: str = DEFAULT_IMAGE_SIZE, model: str = DEFAULT_IMAGE_MODEL) -> str:
-    """Generate an image via OpenAI's image model and return a data URI."""
+def generate_image_with_gpt(
+    prompt: str,
+    size: str = DEFAULT_IMAGE_SIZE,
+    model: str = DEFAULT_IMAGE_MODEL,
+    base_image_bytes: Optional[bytes] = None,
+    base_image_name: Optional[str] = None,
+) -> str:
+    """Generate or edit an image via OpenAI's image model and return a data URI."""
     client = _get_client()
-    result = client.images.generate(
-        model=model,
-        prompt=prompt,
-        size=size,
-    )
+    if base_image_bytes:
+        # When the user supplies a reference asset we use the edit endpoint so GPT-Image
+        # can honor both the provided pixels and the new textual guidance.
+        image_buffer = BytesIO(base_image_bytes)
+        image_buffer.name = base_image_name or "reference.png"
+        result = client.images.edit(
+            model=model,
+            prompt=prompt,
+            image=image_buffer,
+            size=size,
+        )
+    else:
+        result = client.images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+        )
     b64_data = result.data[0].b64_json
     return f"data:image/png;base64,{b64_data}"
+
+
+def generate_video_with_sora(prompt: str, model: str = DEFAULT_VIDEO_MODEL, max_duration: int = 4) -> str:
+    """Generate a video via OpenAI's Sora model and return a data URI.
+    
+    Args:
+        prompt: Text prompt for video generation
+        model: Sora model name (default: sora-2)
+        max_duration: Maximum video duration in seconds (default: 4)
+    """
+    client = _get_client()
+    
+    # Create video generation request
+    video = client.videos.create(
+        model=model,
+        prompt=prompt,
+        max_duration=max_duration,  # Maximum duration in seconds (typically 4 for Sora)
+    )
+    
+    # Poll for completion
+    while video.status in ("in_progress", "queued"):
+        time.sleep(2)  # Wait 2 seconds between checks
+        video = client.videos.retrieve(video.id)
+        
+        if video.status == "failed":
+            error_message = getattr(getattr(video, "error", None), "message", "Video generation failed")
+            raise RuntimeError(f"Video generation failed: {error_message}")
+    
+    if video.status != "completed":
+        raise RuntimeError(f"Video generation ended with status: {video.status}")
+    
+    # Download video content
+    video_content = client.videos.download_content(video.id, variant="video")
+    video_bytes = video_content.read()
+    
+    # Convert to base64 data URI
+    b64_data = base64.b64encode(video_bytes).decode("utf-8")
+    return f"data:video/mp4;base64,{b64_data}"
 
 
 def overlay_logo_on_image(
@@ -224,6 +282,8 @@ def attach_images_to_plan(
     logo_bytes: Optional[bytes] = None,
     logo_position: str = DEFAULT_LOGO_POSITION,
     logo_scale: float = DEFAULT_LOGO_SCALE,
+    reference_image_bytes: Optional[bytes] = None,
+    reference_image_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Attach generated images (as base64 data URIs) to each post."""
     size_map = PLATFORM_IMAGE_SIZES.copy()
@@ -238,7 +298,7 @@ def attach_images_to_plan(
             if not prompt:
                 continue
             try:
-                uri = generate_image_with_gpt(prompt, size=image_size, model=model)
+                uri = generate_image_with_gpt(prompt, size=image_size, model=model, base_image_bytes=reference_image_bytes, base_image_name=reference_image_name,)
                 if logo_bytes:
                     uri = overlay_logo_on_image(uri, logo_bytes, position=logo_position, scale=logo_scale)
                 post["image_data_uri"] = uri
@@ -246,6 +306,40 @@ def attach_images_to_plan(
             except Exception as exc:
                 post["image_data_uri"] = None
                 post["image_error"] = str(exc)
+    return social_plan
+
+
+def attach_videos_to_plan(
+    social_plan: Dict[str, Any],
+    model: str = DEFAULT_VIDEO_MODEL,
+    max_duration: int = 4,
+) -> Dict[str, Any]:
+    """Attach generated videos (as base64 data URIs) to each post.
+    
+    Args:
+        social_plan: The social media plan with posts
+        model: Sora model name (default: sora-2)
+        max_duration: Maximum video duration in seconds (default: 4)
+    """
+    for platform in social_plan.get("platforms", []):
+        for post in platform.get("posts", []):
+            # Use image_prompt as video prompt, or create a video-specific prompt
+            prompt = post.get("image_prompt") or post.get("video_prompt")
+            if not prompt:
+                # Create a video prompt from the text if no image prompt exists
+                text = post.get("text", "")
+                if text:
+                    prompt = f"Create a dynamic, engaging video reel for: {text[:200]}"
+                else:
+                    continue
+            
+            try:
+                uri = generate_video_with_sora(prompt, model=model, max_duration=max_duration)
+                post["video_data_uri"] = uri
+                post.pop("video_error", None)
+            except Exception as exc:
+                post["video_data_uri"] = None
+                post["video_error"] = str(exc)
     return social_plan
 
 
@@ -261,6 +355,10 @@ def generate_social_content_and_images(
     logo_bytes: Optional[bytes] = None,
     logo_position: str = DEFAULT_LOGO_POSITION,
     logo_scale: float = DEFAULT_LOGO_SCALE,
+    proposal_context: Optional[Dict[str, Any]] = None,
+    outputs: Optional[List[str]] = None,
+    reference_image_bytes: Optional[bytes] = None,
+    reference_image_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """High-level helper to create posts and matching visuals."""
     plan = generate_social_plan(
@@ -271,12 +369,37 @@ def generate_social_content_and_images(
         num_posts_per_platform=num_posts_per_platform,
         extra_instructions=extra_instructions,
     )
-    plan = attach_images_to_plan(
-        plan,
-        platform_image_sizes=platform_image_sizes,
-        default_size=image_size,
-        logo_bytes=logo_bytes,
-        logo_position=logo_position,
-        logo_scale=logo_scale,
-    )
+    
+    # Check which outputs are requested
+    should_generate_images = False
+    should_generate_videos = False
+    if outputs:
+        should_generate_images = any(
+            output.lower() in ['poster', 'image', 'images'] 
+            for output in outputs
+        )
+        should_generate_videos = any(
+            output.lower() in ['video', 'reel', 'videos', 'reels'] 
+            for output in outputs
+        )
+    
+    if should_generate_images:
+        plan = attach_images_to_plan(
+            plan,
+            platform_image_sizes=platform_image_sizes,
+            default_size=image_size,
+            logo_bytes=logo_bytes,
+            logo_position=logo_position,
+            logo_scale=logo_scale,
+            reference_image_bytes=reference_image_bytes,
+            reference_image_name=reference_image_name,
+        )
+    
+    if should_generate_videos:
+        plan = attach_videos_to_plan(
+            plan,
+            model=DEFAULT_VIDEO_MODEL,
+            max_duration=4,  # Sora typically supports up to 4 seconds
+        )
+    
     return plan

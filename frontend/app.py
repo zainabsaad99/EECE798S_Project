@@ -14,6 +14,7 @@ load_dotenv(dotenv_path=env_path)
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-123-abc!@#')
 BACKEND_API_URL = os.environ.get('BACKEND_URL', 'http://backend:5000')
+PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', 'http://localhost:5000')  
 
 def validate_email_format(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
@@ -117,7 +118,7 @@ def content_studio():
                 profile = response.json().get('user')
     except Exception as exc:
         print(f"Error fetching user profile for content studio: {exc}")
-    backend_base = BACKEND_API_URL.rstrip('/')
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
     content_api = f"{backend_base}/api/content/generate"
     return render_template('content_generation.html', user=profile or user, content_api=content_api)
 
@@ -234,7 +235,7 @@ def gap_analysis():
                     user_id = profile.get('id')
     except Exception as exc:
         print(f"Error fetching user profile for gap analysis: {exc}")
-    backend_base = BACKEND_API_URL.rstrip('/')
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
     gap_api = f"{backend_base}/api/gap-analysis"
     keywords_api = f"{backend_base}/api/gap/keywords"
     business_api = f"{backend_base}/api/gap/businesses"

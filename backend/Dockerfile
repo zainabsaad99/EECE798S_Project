@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy the application code
-COPY app.py .
+COPY . .
 COPY linkedin_agent.py .
 
 #RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"

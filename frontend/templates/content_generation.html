@@ -76,6 +76,11 @@
                                 <input type="file" id="logoUpload" accept="image/*">
                                 <small class="form-hint">PNG, JPG up to 5 MB.</small>
                             </div>
+                            <div class="form-group">
+                                <label for="referenceImageUpload">Reference Image (optional)</label>
+                                <input type="file" id="referenceImageUpload" accept="image/*">
+                                <small class="form-hint">Upload an inspiration shot (max 10 MB) to guide the poster.</small>
+                            </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="logoPosition">Logo Position</label>
@@ -157,6 +162,7 @@
                             <div class="spinner"></div>
                             <h3>Creating your perfect ad...</h3>
                             <p>Our agent collective is orchestrating vectors, copy, and video snippets.</p>
+                            <div class="status-messages-container" id="statusMessages"></div>
                         </div>
 
                         <div class="results-card" id="resultsCard" style="display: none;">
@@ -179,7 +185,7 @@
                                     </button>
                                 </div>
                                 <div class="result-content">
-                                    <p id="generatedText"></p>
+                                    <textarea id="generatedText" class="editable-text" rows="8" placeholder="Generated text will appear here..."></textarea>
                                     <p class="text-ready">✅ Text ready for use</p>
                                 </div>
                             </div>
@@ -222,7 +228,7 @@
                                         </svg>
                                         <span>Generated Video</span>
                                     </div>
-                                    <button class="btn ghost action-button" data-action="download" disabled>
+                                    <button class="btn ghost action-button" data-action="download" data-type="video" disabled>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                             <polyline points="7 10 12 15 17 10"></polyline>
@@ -232,14 +238,27 @@
                                     </button>
                                 </div>
                                 <div class="result-content">
-                                    <div class="video-placeholder">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
-                                            <polygon points="10 15 15 12 10 9 10 15"></polygon>
-                                        </svg>
-                                        <p>Video preview unavailable</p>
+                                    <div class="video-display" id="videoPreview">
+                                        <div class="video-placeholder">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                                <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                            </svg>
+                                            <p>Video preview unavailable</p>
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div class="regenerate-section">
+                                <button class="btn primary regenerate-button" id="regenerateBtn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                    </svg>
+                                    Regenerate Ad
+                                </button>
                             </div>
                         </div>
                     </div>
