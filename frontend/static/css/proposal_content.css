@@ -22,3 +22,86 @@
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
+
+/* Enhanced scrolling for textareas and content boxes */
+#adText,
+#generatedText,
+.editable-text,
+.form-group textarea {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 400px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.4) rgba(15, 23, 42, 0.3);
+}
+
+/* Ensure textareas can grow but have max height for scrolling */
+#adText {
+  max-height: 300px;
+}
+
+#generatedText.editable-text {
+  max-height: 500px;
+}
+
+/* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+#adText::-webkit-scrollbar,
+#generatedText::-webkit-scrollbar,
+.editable-text::-webkit-scrollbar,
+.form-group textarea::-webkit-scrollbar {
+  width: 8px;
+}
+
+#adText::-webkit-scrollbar-track,
+#generatedText::-webkit-scrollbar-track,
+.editable-text::-webkit-scrollbar-track,
+.form-group textarea::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: var(--radius-sm);
+  margin: 4px;
+}
+
+#adText::-webkit-scrollbar-thumb,
+#generatedText::-webkit-scrollbar-thumb,
+.editable-text::-webkit-scrollbar-thumb,
+.form-group textarea::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+}
+
+#adText::-webkit-scrollbar-thumb:hover,
+#generatedText::-webkit-scrollbar-thumb:hover,
+.editable-text::-webkit-scrollbar-thumb:hover,
+.form-group textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+/* Result content area scrolling */
+.result-content {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 600px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.4) rgba(15, 23, 42, 0.3);
+}
+
+.result-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.result-content::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: var(--radius-sm);
+  margin: 4px;
+}
+
+.result-content::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+}
+
+.result-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}

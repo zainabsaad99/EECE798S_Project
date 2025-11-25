@@ -42,17 +42,6 @@
         </svg>
         <span>Content Studio</span>
       </a>
-      <a href="{{ url_for('proposal_content') }}" class="sidebar-link {% if request.endpoint == 'proposal_content' %}active{% endif %}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v20"/>
-          <path d="M5 7h7"/>
-          <path d="M5 17h7"/>
-          <path d="M17 7h2"/>
-          <path d="M17 12h4"/>
-          <path d="M17 17h3"/>
-        </svg>
-        <span>Proposal Studio</span>
-      </a>
       <a href="{{ url_for('gap_analysis') }}" class="sidebar-link {% if request.endpoint == 'gap_analysis' %}active{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 3v18h18"/>
@@ -67,6 +56,12 @@
           <circle cx="4" cy="4" r="2"/>
         </svg>
         <span>LinkedIn Agent</span>
+      </a>
+      <a href="{{ url_for('chat_interface') }}" class="sidebar-link {% if request.endpoint in ['chat_interface', 'linkedin_agent_chat', 'content_studio_chat'] %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Chat Interface</span>
       </a>
     </div>
 

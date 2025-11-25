@@ -29,6 +29,9 @@ from content_agent import (
     DEFAULT_LOGO_POSITION,
     DEFAULT_LOGO_SCALE,
 )
+from proposal_agent import (
+    generate_proposal_content_and_images,
+)
 from gap_analysis import run_gap_analysis
 
 # Load environment variables from .env file at project root
@@ -1387,6 +1390,154 @@ def api_generate_content():
         return jsonify({"success": False, "message": "Content generation failed."}), 500
 
     return jsonify({"success": True, "plan": plan}), 200
+
+@app.route('/api/proposal/generate', methods=['POST'])
+def api_generate_proposal_content():
+    """
+    Generate proposal-based social content + associated image data via OpenAI.
+    Similar to content generation but with proposal context and narrative.
+    Payload expects brand_summary, campaign_goal, target_audience, platforms (list),
+    proposal_narrative (optional), and proposal_context (optional).
+    """
+    try:
+        app.logger.info("=== PROPOSAL GENERATION REQUEST START ===")
+        app.logger.info(f"Content-Type: {request.content_type}")
+        
+        is_multipart = request.content_type and 'multipart/form-data' in request.content_type.lower()
+        app.logger.info(f"Is multipart: {is_multipart}")
+        
+        if is_multipart:
+            payload = request.form.to_dict()
+            app.logger.info(f"Form data keys: {list(payload.keys())}")
+        else:
+            payload = request.get_json(silent=True) or {}
+            app.logger.info(f"JSON payload keys: {list(payload.keys())}")
+        
+        app.logger.info(f"Payload: {json.dumps(payload, indent=2, default=str)}")
+
+        logo_file = request.files.get('logo_file') if request.files else None
+        reference_image_file = request.files.get('reference_image') if request.files else None
+        app.logger.info(f"Logo file: {logo_file.filename if logo_file else None}")
+        app.logger.info(f"Reference image file: {reference_image_file.filename if reference_image_file else None}")
+
+        platforms = _parse_platforms(payload.get('platforms'))
+        app.logger.info(f"Parsed platforms: {platforms}")
+        
+        required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
+        missing = [field for field in required_fields if not (payload.get(field) and str(payload.get(field)).strip())]
+        if not platforms:
+            missing.append('platforms')
+
+        if missing:
+            app.logger.error(f"Missing required fields: {missing}")
+            return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
+
+        size_overrides = _parse_size_overrides(payload.get('platform_image_sizes'))
+        logo_position = (payload.get('logo_position') or DEFAULT_LOGO_POSITION).lower()
+        logo_scale = _safe_float(payload.get('logo_scale'), DEFAULT_LOGO_SCALE)
+        image_size = payload.get('image_size') or os.getenv('OPENAI_IMAGE_SIZE', '1024x1024')
+
+        logo_bytes = None
+        if logo_file:
+            logo_bytes = logo_file.read()
+            if len(logo_bytes) > MAX_LOGO_UPLOAD_BYTES:
+                return jsonify({"success": False, "message": "Logo file too large. Max 5MB."}), 400
+
+        reference_image_bytes = None
+        reference_image_name = None
+        if reference_image_file:
+            reference_image_bytes = reference_image_file.read()
+            if len(reference_image_bytes) > MAX_REFERENCE_IMAGE_BYTES:
+                return jsonify({"success": False, "message": "Reference image too large. Max 10MB."}), 400
+            if len(reference_image_bytes) == 0:
+                reference_image_bytes = None
+            else:
+                reference_image_name = reference_image_file.filename or "reference.png"
+
+        # Parse proposal context
+        proposal_context = payload.get('proposal_context')
+        app.logger.info(f"Raw proposal_context type: {type(proposal_context)}")
+        if isinstance(proposal_context, str):
+            try:
+                proposal_context = json.loads(proposal_context)
+                app.logger.info(f"Parsed proposal_context from JSON string")
+            except json.JSONDecodeError as e:
+                app.logger.warning(f"Failed to parse proposal_context JSON: {e}")
+                proposal_context = None
+        if proposal_context and not isinstance(proposal_context, dict):
+            app.logger.warning(f"proposal_context is not a dict: {type(proposal_context)}")
+            proposal_context = None
+        app.logger.info(f"Final proposal_context: {json.dumps(proposal_context, indent=2, default=str) if proposal_context else None}")
+
+        # Get proposal narrative (similar to ad_text in content studio)
+        proposal_narrative = payload.get('proposal_narrative', '').strip()
+        app.logger.info(f"proposal_narrative from payload: {proposal_narrative[:100] if proposal_narrative else None}")
+        if not proposal_narrative:
+            # Fallback to ad_text if proposal_narrative not provided
+            proposal_narrative = payload.get('ad_text', '').strip()
+            app.logger.info(f"Using ad_text as proposal_narrative: {proposal_narrative[:100] if proposal_narrative else None}")
+
+        outputs = payload.get('outputs')
+        app.logger.info(f"Raw outputs: {outputs}, type: {type(outputs)}")
+        if isinstance(outputs, str):
+            try:
+                outputs = json.loads(outputs)
+                app.logger.info(f"Parsed outputs from JSON string: {outputs}")
+            except json.JSONDecodeError as e:
+                app.logger.warning(f"Failed to parse outputs JSON: {e}")
+                outputs = []
+        if not isinstance(outputs, list):
+            app.logger.warning(f"outputs is not a list: {type(outputs)}, setting to []")
+            outputs = []
+        app.logger.info(f"Final outputs: {outputs}")
+
+        try:
+            num_posts = int(payload.get('num_posts_per_platform', 3))
+        except (TypeError, ValueError) as e:
+            app.logger.warning(f"Failed to parse num_posts_per_platform: {e}, using default 3")
+            num_posts = 3
+        app.logger.info(f"num_posts_per_platform: {num_posts}")
+
+        app.logger.info("Calling generate_proposal_content_and_images...")
+        try:
+            plan = generate_proposal_content_and_images(
+                brand_summary=payload['brand_summary'],
+                campaign_goal=payload['campaign_goal'],
+                target_audience=payload['target_audience'],
+                platforms=platforms,
+                proposal_narrative=proposal_narrative,
+                proposal_context=proposal_context,
+                num_posts_per_platform=num_posts,
+                extra_instructions=payload.get('extra_instructions', ''),
+                outputs=outputs,
+                image_size=image_size,
+                platform_image_sizes=size_overrides,
+                logo_bytes=logo_bytes,
+                logo_position=logo_position,
+                logo_scale=logo_scale,
+                reference_image_bytes=reference_image_bytes,
+                reference_image_name=reference_image_name,
+            )
+            app.logger.info("generate_proposal_content_and_images completed successfully")
+            app.logger.info(f"Plan structure: platforms={len(plan.get('platforms', []))}")
+            if plan.get('platforms'):
+                first_platform = plan['platforms'][0]
+                app.logger.info(f"First platform: {first_platform.get('name')}, posts: {len(first_platform.get('posts', []))}")
+        except ValueError as err:
+            app.logger.error(f"ValueError in proposal generation: {str(err)}")
+            return jsonify({"success": False, "message": str(err), "supported_platforms": SUPPORTED_PLATFORMS}), 400
+        except RuntimeError as err:
+            app.logger.error(f"RuntimeError in proposal generation: {str(err)}")
+            return jsonify({"success": False, "message": str(err)}), 500
+        except Exception as err:
+            app.logger.exception("Proposal content generation failed")
+            return jsonify({"success": False, "message": f"Proposal content generation failed: {str(err)}"}), 500
+
+        app.logger.info("=== PROPOSAL GENERATION REQUEST SUCCESS ===")
+        return jsonify({"success": True, "plan": plan}), 200
+    except Exception as outer_err:
+        app.logger.exception("Unexpected error in api_generate_proposal_content")
+        return jsonify({"success": False, "message": f"Unexpected error: {str(outer_err)}"}), 500
 
 @app.route('/api/gap/keywords', methods=['GET'])
 def gap_keywords():

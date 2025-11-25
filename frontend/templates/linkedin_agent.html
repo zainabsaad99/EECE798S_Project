@@ -268,7 +268,7 @@
         
         // Initialize user LinkedIn data from server
         // eslint-disable-next-line
-        wwindow.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};
+        window.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};
     </script>
     <script src="{{ url_for('static', filename='js/linkedin_agent.js') }}"></script>
 </body>
