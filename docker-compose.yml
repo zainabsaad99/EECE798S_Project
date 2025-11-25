@@ -13,6 +13,7 @@ services:
     environment:
       - FLASK_ENV=development
       - BACKEND_URL=http://backend:5000
+      - PUBLIC_BACKEND_URL=http://localhost:5000
     depends_on:
       - backend
     networks:
@@ -28,6 +29,7 @@ services:
       - ./.env
     environment:
       - FLASK_ENV=development
+      - PUBLIC_BACKEND_URL=http://localhost:5000
       - DB_HOST=db
       - DB_PORT=3306
       - DB_NAME=NextGenAI

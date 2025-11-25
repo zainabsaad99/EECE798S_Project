@@ -1299,6 +1299,12 @@ def api_generate_content():
 
     logo_file = request.files.get('logo_file') if request.files else None
     reference_image_file = request.files.get('reference_image') if request.files else None
+    
+    # Debug logging
+    if reference_image_file:
+        app.logger.info(f"Reference image file received in request: {reference_image_file.filename}")
+    else:
+        app.logger.info("No reference image file in request")
 
     platforms = _parse_platforms(payload.get('platforms'))
     required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
@@ -1324,9 +1330,14 @@ def api_generate_content():
     reference_image_name = None
     if reference_image_file:
         reference_image_bytes = reference_image_file.read()
+        app.logger.info(f"Reference image received: {len(reference_image_bytes)} bytes, filename: {reference_image_file.filename}")
         if len(reference_image_bytes) > MAX_REFERENCE_IMAGE_BYTES:
             return jsonify({"success": False, "message": "Reference image too large. Max 10MB."}), 400
-        reference_image_name = reference_image_file.filename or "reference.png"
+        if len(reference_image_bytes) == 0:
+            app.logger.warning("Reference image file is empty, ignoring it")
+            reference_image_bytes = None
+        else:
+            reference_image_name = reference_image_file.filename or "reference.png"
 
     proposal_context = payload.get('proposal_context')
     if isinstance(proposal_context, str):
