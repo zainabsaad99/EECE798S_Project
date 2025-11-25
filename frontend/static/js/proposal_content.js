@@ -33,8 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedOutputs = ['text'];
   let isGenerating = false;
   let latestImageDataUri = null;
+  let latestVideoDataUri = null;
   let availableProposals = [];
   let currentProposalContext = null;
+  let imageStatusInterval = null;
 
   const normalizeProposalContext = data => {
     if (!data || typeof data !== 'object') return null;
@@ -89,6 +91,137 @@ document.addEventListener('DOMContentLoaded', () => {
   const setStatus = message => {
     if (statusText) {
       statusText.textContent = message || '';
+    }
+  };
+
+  const showStatusMessage = (message, type = 'info') => {
+    const statusMessages = document.getElementById('statusMessages');
+    if (!statusMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `status-message status-${type}`;
+    messageDiv.textContent = message;
+    
+    statusMessages.appendChild(messageDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(-10px)';
+        setTimeout(() => messageDiv.remove(), 300);
+      }
+    }, 5000);
+    
+    // Scroll to message
+    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  const streamText = (targetElement, text, speed = 20) => {
+    if (!targetElement || !text) return;
+    
+    // Clear the element
+    if (targetElement.tagName === 'TEXTAREA') {
+      targetElement.value = '';
+    } else {
+      targetElement.textContent = '';
+    }
+    
+    let index = 0;
+    
+    const stream = () => {
+      if (index < text.length) {
+        if (targetElement.tagName === 'TEXTAREA') {
+          targetElement.value += text[index];
+        } else {
+          targetElement.textContent += text[index];
+        }
+        index++;
+        setTimeout(stream, speed);
+      }
+    };
+    
+    stream();
+  };
+
+  const startImageStatusUpdates = () => {
+    // Clear any existing interval
+    if (imageStatusInterval) {
+      clearInterval(imageStatusInterval);
+    }
+    
+    const statusMessages = [
+      'Analyzing brand requirements...',
+      'Generating visual concepts...',
+      'Creating design elements...',
+      'Composing final image...',
+      'Applying logo and branding...',
+      'Finalizing image details...',
+      'Almost ready...'
+    ];
+    
+    let statusIndex = 0;
+    
+    // Show first status immediately
+    if (statusMessages.length > 0) {
+      showStatusMessage(statusMessages[0], 'info');
+      statusIndex = 1;
+    }
+    
+    // Update status every 10 seconds
+    imageStatusInterval = setInterval(() => {
+      if (statusIndex < statusMessages.length) {
+        showStatusMessage(statusMessages[statusIndex], 'info');
+        statusIndex++;
+      } else {
+        // Loop back or stop
+        clearInterval(imageStatusInterval);
+        imageStatusInterval = null;
+      }
+    }, 10000);
+  };
+
+  const startVideoStatusUpdates = () => {
+    // Clear any existing interval
+    if (imageStatusInterval) {
+      clearInterval(imageStatusInterval);
+    }
+    
+    const statusMessages = [
+      'Initializing video generation...',
+      'Creating video concept...',
+      'Generating video frames...',
+      'Processing video sequence...',
+      'Rendering video content...',
+      'Finalizing video details...',
+      'Video generation in progress...'
+    ];
+    
+    let statusIndex = 0;
+    
+    // Show first status immediately
+    if (statusMessages.length > 0) {
+      showStatusMessage(statusMessages[0], 'info');
+      statusIndex = 1;
+    }
+    
+    // Update status every 10 seconds
+    imageStatusInterval = setInterval(() => {
+      if (statusIndex < statusMessages.length) {
+        showStatusMessage(statusMessages[statusIndex], 'info');
+        statusIndex++;
+      } else {
+        // Loop back or stop
+        clearInterval(imageStatusInterval);
+        imageStatusInterval = null;
+      }
+    }, 10000);
+  };
+
+  const stopImageStatusUpdates = () => {
+    if (imageStatusInterval) {
+      clearInterval(imageStatusInterval);
+      imageStatusInterval = null;
     }
   };
 
@@ -296,21 +429,120 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error('No posts returned from API');
     }
 
-    generatedTextEl.textContent = primaryPost.text || 'Text not returned.';
+    // Stop image status updates
+    stopImageStatusUpdates();
+    
+    // Show results card immediately
     focusResultItems();
-
-    if (selectedOutputs.includes('poster')) {
-      latestImageDataUri = primaryPost.image_data_uri || null;
-      const html = latestImageDataUri
-        ? `<img src="${latestImageDataUri}" alt="Generated Poster" />`
-        : `<div class="poster-placeholder"><span>Poster preview unavailable</span></div>`;
-      posterPreview.innerHTML = html + '<span class="poster-ready">Ready</span>';
+    setViewState('ready');
+    
+    // Stream text if text output is selected
+    if (selectedOutputs.includes('text') && primaryPost.text) {
+      const textToStream = primaryPost.text || 'Text not returned.';
+      // Clear and start streaming
+      if (generatedTextEl.tagName === 'TEXTAREA') {
+        generatedTextEl.value = '';
+        setTimeout(() => {
+          streamText(generatedTextEl, textToStream, 20);
+        }, 100);
+      } else {
+        generatedTextEl.textContent = '';
+        setTimeout(() => {
+          streamText(generatedTextEl, textToStream, 20);
+        }, 100);
+      }
     } else {
-      latestImageDataUri = null;
-      posterPreview.innerHTML = `<div class="poster-placeholder"><span>Poster preview unavailable</span></div><span class="poster-ready">Ready</span>`;
+      if (generatedTextEl.tagName === 'TEXTAREA') {
+        generatedTextEl.value = primaryPost.text || 'Text not returned.';
+      } else {
+        generatedTextEl.textContent = primaryPost.text || 'Text not returned.';
+      }
     }
 
-    setViewState('ready');
+    // Handle image
+    if (selectedOutputs.includes('poster')) {
+      latestImageDataUri = primaryPost.image_data_uri || null;
+      if (latestImageDataUri) {
+        const html = `<img src="${latestImageDataUri}" alt="Generated Poster" />`;
+        posterPreview.innerHTML = html + '<span class="poster-ready">Ready</span>';
+        showStatusMessage('Image generated successfully!', 'success');
+      } else {
+        posterPreview.innerHTML = `
+          <div class="poster-placeholder">
+            <span>Poster preview unavailable</span>
+          </div>
+          <span class="poster-ready">Ready</span>
+        `;
+        showStatusMessage('Image generation completed, but no image was returned.', 'error');
+      }
+    } else {
+      latestImageDataUri = null;
+      posterPreview.innerHTML = `
+        <div class="poster-placeholder">
+          <span>Poster preview unavailable</span>
+        </div>
+        <span class="poster-ready">Ready</span>
+      `;
+    }
+
+    // Handle video
+    const videoPreview = document.getElementById('videoPreview');
+    if (selectedOutputs.includes('video') || selectedOutputs.includes('reel')) {
+      latestVideoDataUri = primaryPost.video_data_uri || null;
+      if (videoPreview) {
+        if (latestVideoDataUri) {
+          const html = `
+            <video controls class="generated-video">
+              <source src="${latestVideoDataUri}" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+            <span class="video-ready">Ready</span>
+          `;
+          videoPreview.innerHTML = html;
+          // Enable download button
+          const videoDownloadBtn = videoPreview.closest('.result-item')?.querySelector('[data-action="download"]');
+          if (videoDownloadBtn) {
+            videoDownloadBtn.disabled = false;
+          }
+          showStatusMessage('Video generated successfully!', 'success');
+        } else if (primaryPost.video_error) {
+          videoPreview.innerHTML = `
+            <div class="video-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                <polygon points="10 15 15 12 10 9 10 15"></polygon>
+              </svg>
+              <p>Video generation failed: ${primaryPost.video_error}</p>
+            </div>
+          `;
+          showStatusMessage('Video generation completed, but no video was returned.', 'error');
+        } else {
+          videoPreview.innerHTML = `
+            <div class="video-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                <polygon points="10 15 15 12 10 9 10 15"></polygon>
+              </svg>
+              <p>Video preview unavailable</p>
+            </div>
+          `;
+        }
+      }
+    } else {
+      latestVideoDataUri = null;
+      if (videoPreview) {
+        videoPreview.innerHTML = `
+          <div class="video-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+              <polygon points="10 15 15 12 10 9 10 15"></polygon>
+            </svg>
+            <p>Video preview unavailable</p>
+          </div>
+        `;
+      }
+    }
+
     setStatus('Content generated successfully.');
   };
 
@@ -324,21 +556,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoPosition = logoPositionSelect.value;
     const logoScale = logoScaleInput.value || '0.18';
 
-    const proposalNarrative = currentProposalContext
-      ? [currentProposalContext.proposal, currentProposalContext.why_it_helps].filter(Boolean).join(' ')
-      : '';
-    const instructionParts = [`Tone: ${tone}.`, `Outputs: ${selectedOutputs.join(', ')}.`];
-    if (proposalNarrative) {
-      instructionParts.push(
-        `Proposal context: ${proposalNarrative} (trend: ${currentProposalContext.trend}, audience: ${currentProposalContext.target_persona}).`
-      );
-    }
-    if (adText) {
-      instructionParts.push(`Campaign brief (rewrite in fresh copy): ${adText}`);
+    // Build proposal narrative (similar to ad_text in content studio)
+    // Use adText as proposal narrative, or build from proposal context
+    let proposalNarrative = adText;
+    if (!proposalNarrative && currentProposalContext) {
+      proposalNarrative = [
+        currentProposalContext.proposal,
+        currentProposalContext.why_it_helps
+      ].filter(Boolean).join(' ');
     }
 
+    const instructionParts = [`Tone: ${tone}.`, `Outputs: ${selectedOutputs.join(', ')}.`];
+
     const payload = {
-      brand_summary: summary || adText || 'Your brand narrative',
+      brand_summary: summary || proposalNarrative || 'Your brand narrative',
       campaign_goal: goal || 'General awareness',
       target_audience: audience || currentProposalContext?.target_persona || 'General audience',
       extra_instructions: instructionParts.join(' '),
@@ -348,15 +579,26 @@ document.addEventListener('DOMContentLoaded', () => {
       logo_scale: logoScale,
       outputs: [...selectedOutputs],
     };
+    
+    // Add proposal narrative (similar to ad_text in content studio)
+    if (proposalNarrative) {
+      payload.proposal_narrative = proposalNarrative;
+    }
+    
+    // Add proposal context if available
     if (currentProposalContext) {
       payload.proposal_context = currentProposalContext;
     }
+    
     return payload;
   };
 
   const handleCopyAction = button => {
-    if (!generatedTextEl.textContent) return;
-    navigator.clipboard?.writeText(generatedTextEl.textContent).then(() => {
+    const textToCopy = generatedTextEl.tagName === 'TEXTAREA' 
+      ? generatedTextEl.value 
+      : generatedTextEl.textContent;
+    if (!textToCopy) return;
+    navigator.clipboard?.writeText(textToCopy).then(() => {
       const original = button.textContent;
       button.textContent = 'Copied';
       setTimeout(() => (button.textContent = original), 1200);
@@ -374,17 +616,36 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus('Poster image downloaded.');
       return;
     }
+    if (type === 'video' && latestVideoDataUri) {
+      const link = document.createElement('a');
+      link.href = latestVideoDataUri;
+      link.download = `nextgen-content-${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setStatus('Video downloaded.');
+      return;
+    }
     setStatus('Download unavailable for this asset.');
   };
 
   const submitToBackend = async () => {
+    console.log('=== PROPOSAL SUBMIT TO BACKEND START ===');
     if (!apiEndpoint) {
+      console.error('API endpoint not configured:', apiEndpoint);
       throw new Error('Content API endpoint not configured.');
     }
+    console.log('API endpoint:', apiEndpoint);
+    
     const payload = generatePayload();
+    console.log('Generated payload:', JSON.stringify(payload, null, 2));
+    
     const logoFile = logoInput.files?.[0];
     const referenceImageFile = referenceImageInput?.files?.[0];
     const needsMultipart = Boolean(logoFile || referenceImageFile);
+    console.log('needsMultipart:', needsMultipart);
+    console.log('logoFile:', logoFile?.name, logoFile?.size);
+    console.log('referenceImageFile:', referenceImageFile?.name, referenceImageFile?.size);
 
     let response;
     if (needsMultipart) {
@@ -396,6 +657,11 @@ document.addEventListener('DOMContentLoaded', () => {
           formData.append(key, value);
         }
       });
+      // Add proposal narrative (similar to ad_text in content studio)
+      if (payload.proposal_narrative) {
+        formData.append('proposal_narrative', payload.proposal_narrative);
+      }
+      // Also include ad_text for backward compatibility
       if (adTextInput.value.trim()) {
         formData.append('ad_text', adTextInput.value.trim());
       }
@@ -407,7 +673,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       response = await fetch(apiEndpoint, { method: 'POST', body: formData });
     } else {
-      const body = JSON.stringify({ ...payload, ad_text: adTextInput.value.trim() });
+      const jsonPayload = { ...payload };
+      // Include proposal_narrative if available
+      if (payload.proposal_narrative) {
+        jsonPayload.proposal_narrative = payload.proposal_narrative;
+      }
+      // Also include ad_text for backward compatibility
+      if (adTextInput.value.trim()) {
+        jsonPayload.ad_text = adTextInput.value.trim();
+      }
+      const body = JSON.stringify(jsonPayload);
       response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -415,11 +690,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    console.log('Response status:', response.status, response.statusText);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('Error response:', errorText);
       throw new Error(errorText || 'Failed to generate content');
     }
-    return response.json();
+    
+    const responseData = await response.json();
+    console.log('Response data:', responseData);
+    console.log('=== PROPOSAL SUBMIT TO BACKEND SUCCESS ===');
+    return responseData;
   };
 
   const handleGenerate = async () => {
@@ -429,6 +712,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus('Sending brief to backend...');
     setViewState('loading');
 
+    // Start status updates based on selected outputs
+    if (selectedOutputs.includes('poster')) {
+      startImageStatusUpdates();
+    } else if (selectedOutputs.includes('video') || selectedOutputs.includes('reel')) {
+      startVideoStatusUpdates();
+    }
+
     try {
       const data = await submitToBackend();
       if (!data?.success) {
@@ -437,11 +727,19 @@ document.addEventListener('DOMContentLoaded', () => {
       renderPlan(data.plan);
     } catch (err) {
       console.error(err);
+      stopImageStatusUpdates();
+      showStatusMessage('Generation failed. Please try again.', 'error');
       setStatus('Generation failed. Please try again.');
       setViewState('idle');
     } finally {
       isGenerating = false;
       updateGenerateButtonState();
+      
+      // Re-enable regenerate button
+      const regenerateBtn = document.querySelector('[data-action="regenerate"]');
+      if (regenerateBtn) {
+        regenerateBtn.disabled = false;
+      }
     }
   };
 

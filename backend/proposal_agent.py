@@ -1,6 +1,6 @@
 """
-Content generation helpers powered by OpenAI.
-Creates platform-specific post plans and companion image data.
+Proposal-based content generation helpers powered by OpenAI.
+Creates platform-specific post plans with proposal context and narrative.
 """
 
 from __future__ import annotations
@@ -53,55 +53,105 @@ def _get_client() -> OpenAI:
     return _client
 
 
-def generate_social_plan(
+def generate_proposal_plan(
     brand_summary: str,
     campaign_goal: str,
     target_audience: str,
     platforms: List[str],
+    proposal_narrative: str = "",
+    proposal_context: Optional[Dict[str, Any]] = None,
     num_posts_per_platform: int = 3,
     extra_instructions: str = "",
     model: str = DEFAULT_TEXT_MODEL,
 ) -> Dict[str, Any]:
-    """Generate platform aware posts and matching image prompts."""
+    """Generate platform-aware posts with proposal context and narrative."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info("=== generate_proposal_plan START ===")
+    logger.info(f"brand_summary: {brand_summary[:100] if brand_summary else None}")
+    logger.info(f"campaign_goal: {campaign_goal}")
+    logger.info(f"target_audience: {target_audience}")
+    logger.info(f"platforms: {platforms}")
+    logger.info(f"proposal_narrative length: {len(proposal_narrative) if proposal_narrative else 0}")
+    logger.info(f"proposal_context: {proposal_context is not None}")
+    logger.info(f"num_posts_per_platform: {num_posts_per_platform}")
+    logger.info(f"extra_instructions: {extra_instructions[:200] if extra_instructions else None}")
 
     valid_platforms = [p for p in platforms if p in SUPPORTED_PLATFORMS]
     if not valid_platforms:
+        logger.error(f"Invalid platforms: {platforms}, supported: {SUPPORTED_PLATFORMS}")
         raise ValueError(f"No valid platforms provided. Supported platforms: {SUPPORTED_PLATFORMS}")
+    logger.info(f"Valid platforms: {valid_platforms}")
 
-    system_prompt = """
-You are a senior social media strategist and copywriter.
+    # Build proposal context section for system prompt
+    proposal_section = ""
+    if proposal_context:
+        proposal_parts = []
+        if proposal_context.get('trend'):
+            proposal_parts.append(f"Trend: {proposal_context['trend']}")
+        if proposal_context.get('proposal'):
+            proposal_parts.append(f"Product Proposal: {proposal_context['proposal']}")
+        if proposal_context.get('why_it_helps'):
+            proposal_parts.append(f"Why it helps: {proposal_context['why_it_helps']}")
+        if proposal_context.get('target_persona'):
+            proposal_parts.append(f"Target Persona: {proposal_context['target_persona']}")
+        if proposal_context.get('success_metrics'):
+            metrics = proposal_context['success_metrics']
+            if isinstance(metrics, list) and metrics:
+                proposal_parts.append(f"Success Metrics: {', '.join(metrics)}")
+        if proposal_parts:
+            proposal_section = "\n\nPROPOSAL CONTEXT:\n" + "\n".join(f"- {part}" for part in proposal_parts)
+            if proposal_context.get('launch_steps'):
+                steps = proposal_context['launch_steps']
+                if isinstance(steps, list) and steps:
+                    proposal_section += "\n\nLaunch Steps:\n" + "\n".join(f"- {step}" for step in steps)
+
+    system_prompt = f"""
+You are a senior social media strategist and copywriter specializing in product launches and proposal campaigns.
 
 You will be given:
 - A brand summary
 - A campaign goal
 - A target audience
 - A list of platforms
-- Desired number of posts per platform
+- Desired number of posts per platform{proposal_section if proposal_section else ""}
+- A proposal narrative (if provided)
 
 Your job:
 1. For each platform, create posts that are NATIVELY formatted for that platform.
 2. For each post, also create an IMAGE PROMPT that a text-to-image model can use.
+3. If proposal context is provided, ensure the content reflects:
+   - The product proposal and its value proposition
+   - The target persona and their pain points
+   - The success metrics and expected outcomes
+   - The trend or market opportunity
+4. If a proposal narrative is provided, use it as the foundation for the content, but rewrite it in fresh, engaging copy suitable for each platform.
 
 Platform guidelines:
 - linkedin
   * Tone: professional, value-packed, thought leadership, story-driven.
   * Format: short paragraphs, optional bullets, no hashtags overload (0–3).
+  * For proposals: Focus on business impact, ROI, and strategic value.
 
 - instagram_feed
   * Tone: emotional + aspirational.
   * Format: hook in first line, then 1–3 short paragraphs, 3–8 hashtags.
   * Image style: visually striking, lifestyle or product-focused.
   * Include 5–12 hashtags at the END of the caption.
+  * For proposals: Emphasize transformation and benefits.
 
 - instagram_story
   * Tone: very short, punchy, CTA-driven.
   * Format: 1–3 short text screens (describe them), clear CTA.
   * Image style: bold typography, minimal text, strong contrast.
+  * For proposals: Quick value proposition with strong CTA.
 
 - twitter
   * Tone: concise, punchy, sometimes contrarian.
   * Format: 1–2 tweets per post concept (thread allowed), max ~240 chars each.
   * Hashtags: 0–3 max.
+  * For proposals: Hook with problem/solution, thread for details.
 
 - tiktok
   * Tone: casual, fun, behind-the-scenes, educational hooks.
@@ -111,28 +161,31 @@ Platform guidelines:
         - CTA
   * Image prompt should describe the key scene or thumbnail.
   * Use 3–6 hashtags.
+  * For proposals: Show the "before/after" or problem/solution narrative.
 
 CRITICAL:
-- Do NOT invent specific numbers (e.g., “500% ROI”) unless user provided them.
+- Do NOT invent specific numbers (e.g., "500% ROI") unless user provided them.
 - Do NOT claim certifications, awards, or partnerships that weren't given.
-- Posts should align with the brand’s personality inferred from the brief.
+- Posts should align with the brand's personality inferred from the brief.
 - Image prompts must be concrete, visual descriptions (no abstract marketing jargon).
+- When proposal narrative is provided, use it as inspiration but create fresh, platform-native content.
+- Always connect the proposal to real user benefits and business outcomes.
 
 Return only valid JSON with the structure:
-{
+{{
   "platforms": [
-    {
+    {{
       "name": "linkedin",
       "posts": [
-        {
+        {{
           "text": "...",
           "image_prompt": "...",
           "notes": "optional helper note"
-        }
+        }}
       ]
-    }
+    }}
   ]
-}
+}}
 """.strip()
 
     user_payload = {
@@ -143,26 +196,67 @@ Return only valid JSON with the structure:
         "num_posts_per_platform": num_posts_per_platform,
         "extra_instructions": extra_instructions,
     }
+    
+    # Add proposal narrative if provided (similar to ad_text in content studio)
+    if proposal_narrative:
+        user_payload["proposal_narrative"] = proposal_narrative
+    
+    # Add proposal context details to user payload
+    if proposal_context:
+        proposal_details = {}
+        if proposal_context.get('trend'):
+            proposal_details['trend'] = proposal_context['trend']
+        if proposal_context.get('proposal'):
+            proposal_details['proposal'] = proposal_context['proposal']
+        if proposal_context.get('why_it_helps'):
+            proposal_details['why_it_helps'] = proposal_context['why_it_helps']
+        if proposal_context.get('target_persona'):
+            proposal_details['target_persona'] = proposal_context['target_persona']
+        if proposal_context.get('success_metrics'):
+            proposal_details['success_metrics'] = proposal_context['success_metrics']
+        if proposal_context.get('launch_steps'):
+            proposal_details['launch_steps'] = proposal_context['launch_steps']
+        if proposal_details:
+            user_payload['proposal_context'] = proposal_details
 
-    client = _get_client()
-    completion = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": (
-                    "Generate social posts and image prompts in JSON only. "
-                    "Here is the campaign brief:\n"
-                    + json.dumps(user_payload, ensure_ascii=False, indent=2)
-                ),
-            },
-        ],
-        response_format={"type": "json_object"},
-    )
-
-    data = json.loads(completion.choices[0].message.content)
-    return data
+    logger.info("Calling OpenAI API...")
+    logger.info(f"System prompt length: {len(system_prompt)}")
+    logger.info(f"User payload keys: {list(user_payload.keys())}")
+    
+    try:
+        client = _get_client()
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "Generate social posts and image prompts in JSON only. "
+                        "Here is the campaign brief:\n"
+                        + json.dumps(user_payload, ensure_ascii=False, indent=2)
+                    ),
+                },
+            ],
+            response_format={"type": "json_object"},
+        )
+        logger.info("OpenAI API call successful")
+        
+        response_content = completion.choices[0].message.content
+        logger.info(f"Response content length: {len(response_content)}")
+        logger.info(f"Response preview: {response_content[:200]}")
+        
+        data = json.loads(response_content)
+        logger.info(f"Parsed JSON successfully, platforms: {len(data.get('platforms', []))}")
+        logger.info("=== generate_proposal_plan SUCCESS ===")
+        return data
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}")
+        logger.error(f"Response content: {response_content[:500] if 'response_content' in locals() else 'N/A'}")
+        raise
+    except Exception as e:
+        logger.error(f"Error in generate_proposal_plan: {type(e).__name__}: {str(e)}")
+        raise
 
 
 def generate_image_with_gpt(
@@ -208,7 +302,7 @@ def generate_video_with_sora(prompt: str, model: str = DEFAULT_VIDEO_MODEL, max_
     # Create video generation request
     video = client.videos.create(
         model=model,
-        prompt=prompt, # Maximum duration in seconds (typically 4 for Sora)
+        prompt=prompt,
     )
     
     # Poll for completion
@@ -298,7 +392,13 @@ def attach_images_to_plan(
             if not prompt:
                 continue
             try:
-                uri = generate_image_with_gpt(prompt, size=image_size, model=model, base_image_bytes=reference_image_bytes, base_image_name=reference_image_name,)
+                uri = generate_image_with_gpt(
+                    prompt, 
+                    size=image_size, 
+                    model=model, 
+                    base_image_bytes=reference_image_bytes, 
+                    base_image_name=reference_image_name,
+                )
                 if logo_bytes:
                     uri = overlay_logo_on_image(uri, logo_bytes, position=logo_position, scale=logo_scale)
                 post["image_data_uri"] = uri
@@ -343,11 +443,13 @@ def attach_videos_to_plan(
     return social_plan
 
 
-def generate_social_content_and_images(
+def generate_proposal_content_and_images(
     brand_summary: str,
     campaign_goal: str,
     target_audience: str,
     platforms: List[str],
+    proposal_narrative: str = "",
+    proposal_context: Optional[Dict[str, Any]] = None,
     num_posts_per_platform: int = 3,
     extra_instructions: str = "",
     image_size: str = DEFAULT_IMAGE_SIZE,
@@ -355,17 +457,18 @@ def generate_social_content_and_images(
     logo_bytes: Optional[bytes] = None,
     logo_position: str = DEFAULT_LOGO_POSITION,
     logo_scale: float = DEFAULT_LOGO_SCALE,
-    proposal_context: Optional[Dict[str, Any]] = None,
     outputs: Optional[List[str]] = None,
     reference_image_bytes: Optional[bytes] = None,
     reference_image_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """High-level helper to create posts and matching visuals."""
-    plan = generate_social_plan(
+    """High-level helper to create proposal-based posts and matching visuals."""
+    plan = generate_proposal_plan(
         brand_summary=brand_summary,
         campaign_goal=campaign_goal,
         target_audience=target_audience,
         platforms=platforms,
+        proposal_narrative=proposal_narrative,
+        proposal_context=proposal_context,
         num_posts_per_platform=num_posts_per_platform,
         extra_instructions=extra_instructions,
     )
@@ -403,3 +506,4 @@ def generate_social_content_and_images(
         )
     
     return plan
+
