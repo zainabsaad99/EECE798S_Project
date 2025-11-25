@@ -33,21 +33,6 @@ from content_agent import (
 from gap_analysis import run_gap_analysis
 from trend_service import generate_trends_from_keywords
 
-# Load environment variables from .env file at project root
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
-
-logging.basicConfig(level=logging.DEBUG)
-app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
-
-DB_HOST = os.getenv('DB_HOST', 'db')  # 'db' matches the service name in docker-compose.yml
-DB_PORT = os.getenv('DB_PORT', '3306')
-DB_NAME = os.getenv('DB_NAME', 'Hackathon')
-DB_USER = os.getenv('DB_USER', 'root')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
-MAX_LOGO_UPLOAD_BYTES = int(os.getenv('MAX_LOGO_UPLOAD_BYTES', 5 * 1024 * 1024))
-MAX_REFERENCE_IMAGE_BYTES = int(os.getenv('MAX_REFERENCE_IMAGE_BYTES', 10 * 1024 * 1024))
 
 DEFAULT_GAP_KEYWORDS = [
     {"id": "fallback-1", "keyword": "AI copilots", "category": "Product"},
@@ -1944,22 +1929,6 @@ def get_website_ids_by_user(user_id):
         except:
             pass
 
-
-@app.route('/api/user/<int:user_id>/json-upload', methods=['GET'])
-def get_uploaded_json_by_user(user_id):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT id, json_data, created_at, updated_at
-            FROM user_json_uploads
-            WHERE user_id=%s
-        """, (user_id,))
-        row = cursor.fetchone()
-        return jsonify({"success": True, "data": row or {}}), 200
-    finally:
-        cursor.close()
-        conn.close()
 
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':
