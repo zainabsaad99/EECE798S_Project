@@ -1930,6 +1930,76 @@ def get_website_ids_by_user(user_id):
             pass
 
 
+@app.route('/upload-json', methods=['POST'])
+def save_uploaded_json():
+    """Save uploaded JSON data to the user_json_uploads table"""
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        json_data = data.get("json_data")
+        print(json_data, flush=   True)
+
+        if not user_id or not json_data:
+            return jsonify({"success": False, "message": "Missing user_id or json_data"}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Save JSON data to user_json_uploads table
+        insert_query = """
+            INSERT INTO user_json_uploads (user_id, json_data)
+            VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE json_data=%s, updated_at=CURRENT_TIMESTAMP
+        """
+        cursor.execute(insert_query, (user_id, json.dumps(json_data), json.dumps(json_data)))
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "JSON data stored successfully",
+            "user_id": user_id
+        }), 201
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
+
+@app.route('/get-json/<int:user_id>', methods=['GET'])
+def get_uploaded_json(user_id):
+    """Retrieve the uploaded JSON for a specific user"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT json_data FROM user_json_uploads WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+
+        if not row or not row[0]:
+            return jsonify({"success": False, "message": "No JSON data found for this user"}), 404
+
+        return jsonify({
+            "success": True,
+            "user_id": user_id,
+            "json_data": row[0]  # Already JSON in MySQL
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
+
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':
     # Database initialization is handled by docker-compose via schema.sql
