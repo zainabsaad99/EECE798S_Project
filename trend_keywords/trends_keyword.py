@@ -340,6 +340,39 @@ def generate_trends():
 
     return jsonify(final_output), 200
 
+
+@app.route("/generate-first-trend", methods=["POST"])
+def generate_first_trend():
+    print("[GENERATE FIRST TREND] Request received", flush=True)
+    data = request.get_json()
+    keywords = data.get("keywords", [])
+
+    if not keywords:
+        return jsonify({"error": "Missing keywords[]"}), 400
+
+    final_output = []
+
+    for kw in keywords:
+        search_result = firecrawl_search(kw)
+
+        if search_result["error"]:
+            final_output.append({"keyword": kw, "error": search_result["error"]})
+            continue
+
+        extracted_articles = extract_full_results(search_result["data"])
+
+        if not extracted_articles:
+            final_output.append({"keyword": kw, "error": "No articles found"})
+            continue
+
+        # Only process the first article
+        first_article = extracted_articles[0]
+        trend_json = call_llm(first_article)
+
+        final_output.append({"keyword": kw, "result": trend_json})
+
+    return jsonify(final_output), 200
+
 # ------------------------------
 # Run Flask App
 # ------------------------------
