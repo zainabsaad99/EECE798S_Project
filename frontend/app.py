@@ -17,6 +17,7 @@ BACKEND_API_URL = os.environ.get('BACKEND_URL', 'http://backend:5000')
 Fetch_Website_API_URL = os.environ.get('FETCH_WEBSITE_URL', 'http://fetch_website:3001')
 LLM_API_URL = os.environ.get('LLM_API_URL', 'http://trend_keywords:3002')
 TRENDS_SEARCH_URL = os.environ.get('TRENDS_SEARCH_URL', 'http://trends_search:3003')
+PUBLIC_BACKEND_URL = "http://localhost:5000"
 
 def validate_email_format(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
@@ -191,6 +192,7 @@ def account():
             check_resp.raise_for_status()
             has_data = check_resp.json().get("has_data", False)
         except Exception as e:
+            print(f"Failed to check user website data: {e}", flush=True)
             return jsonify({"success": False, "message": f"Failed to check user website data: {e}"}), 500
 
         # If no website data, fetch and save
@@ -266,27 +268,27 @@ def account():
 
 
         #this part not needed use to test only 
-        response = requests.get(f"{BACKEND_API_URL}/get-websites/{user_id}")
-        if response.status_code == 200:
-                wbebsites_data = response.json().get("data", [])
-        print(f"Websites to process: {wbebsites_data}", flush=True)
+        # response = requests.get(f"{BACKEND_API_URL}/get-websites/{user_id}")
+        # if response.status_code == 200:
+        #         wbebsites_data = response.json().get("data", [])
+        # print(f"Websites to process: {wbebsites_data}", flush=True)
         
-        response = requests.get(f"{BACKEND_API_URL}/get-trend-keywords-by-user/{user_id}")
-        if response.status_code == 200:
-                keywords = response.json().get("data", [])
-                print(f"keywords: {keywords}", flush=True)
-        first_keyword = keywords[0]["trend_keywords"][0]
-        print(first_keyword,flush=True)
+        # response = requests.get(f"{BACKEND_API_URL}/get-trend-keywords-by-user/{user_id}")
+        # if response.status_code == 200:
+        #         keywords = response.json().get("data", [])
+        #         print(f"keywords: {keywords}", flush=True)
+        # first_keyword = keywords[0]["trend_keywords"][0]
+        # print(first_keyword,flush=True)
 
-        llm_response = requests.post(
-                f"{LLM_API_URL}/generate-trends",
-                json={"keywords": [first_keyword]}   # <-- SEND AS LIST WITH ONE STRING
-            )
+        # llm_response = requests.post(
+        #         f"{LLM_API_URL}/generate-trends",
+        #         json={"keywords": [first_keyword]}   # <-- SEND AS LIST WITH ONE STRING
+        #     )
         
-        llm_response.raise_for_status()
+        # llm_response.raise_for_status()
 
-        trend_results = llm_response.json()
-        print(f"[TRENDS GENERATED]: {trend_results}", flush=True)   
+        # trend_results = llm_response.json()
+        # print(f"[TRENDS GENERATED]: {trend_results}", flush=True)   
         # If website data exists, no extraction needed
         return jsonify({"success": True, "message": "Profile updated. Website data already exists."}), 200
 
@@ -457,7 +459,7 @@ def gap_analysis():
                     user_id = profile.get('id')
     except Exception as exc:
         print(f"Error fetching user profile for gap analysis: {exc}")
-    backend_base = BACKEND_API_URL.rstrip('/')
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
     gap_api = f"{backend_base}/api/gap-analysis"
     # keywords_api = f"{backend_base}/api/gap/keywords"
     keywords_api = f"{backend_base}/get-trend-keywords-list/{user_id}"

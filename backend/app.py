@@ -12,6 +12,7 @@ import threading
 from pathlib import Path
 from dotenv import load_dotenv
 import json
+import requests
 from linkedin_agent import (
     run_agent_sequence,
     generate_linkedin_post,
@@ -30,6 +31,7 @@ from content_agent import (
     DEFAULT_LOGO_SCALE,
 )
 from gap_analysis import run_gap_analysis
+from trend_service import generate_trends_from_keywords
 
 # Load environment variables from .env file at project root
 env_path = Path(__file__).parent.parent / '.env'
@@ -1519,77 +1521,20 @@ def gap_trends():
     keywords = data.get('keywords') or []
     keyword_ids = data.get('keyword_ids') or []
 
-    if keyword_ids:
-        if not user_id:
-            return jsonify({"success": False, "message": "user_id is required when selecting keyword IDs"}), 400
-        try:
-            ids = [int(k) for k in keyword_ids if str(k).isdigit()]
-        except Exception:
-            return jsonify({"success": False, "message": "Invalid keyword_ids"}), 400
-        if ids:
-            conn = None
-            cursor = None
-            try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                placeholders = ','.join(['%s'] * len(ids))
-                cursor.execute(
-                    f"SELECT keyword FROM user_keywords WHERE user_id=%s AND id IN ({placeholders})",
-                    tuple([user_id, *ids])
-                )
-                rows = cursor.fetchall()
-                keywords.extend(row[0] for row in rows if row and row[0])
-            except mysql.connector.Error as db_err:
-                if db_err.errno == 1146:
-                    app.logger.warning("user_keywords table missing during trend fetch; continuing with provided keywords")
-                else:
-                    raise
-            finally:
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-                try:
-                    conn.close()
-                except Exception:
-                    pass
 
     keywords = [kw.strip() for kw in keywords if isinstance(kw, str) and kw.strip()]
     if not keywords:
         return jsonify({"success": False, "message": "Select at least one keyword"}), 400
 
-    firecrawl_api_key = os.getenv('FIRECRAWL_API_KEY')
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    if not firecrawl_api_key or not openai_api_key:
-        return jsonify({"success": False, "message": "Firecrawl/OpenAI keys are not configured."}), 500
-
     try:
-        trend_items = fetch_trends_firecrawl(
-            firecrawl_api_key=firecrawl_api_key,
-            openai_api_key=openai_api_key,
-            keywords=keywords,
-            topic=data.get('topic')
-        )
-        formatted = []
-        prefix = ', '.join(keywords[:3])
-        for item in trend_items:
-            if prefix:
-                summary = f"{item.title} is rising within {prefix} conversations."
-            else:
-                summary = f"{item.title} is rising according to recent web signals."
-            if item.url:
-                summary += f" Source: {item.url}"
-            formatted.append({
-                "trend": item.title,
-                "description": summary,
-                "keywords": keywords,
-                "url": item.url,
-                "source": item.source or 'firecrawl'
-            })
-        return jsonify({"success": True, "trends": formatted}), 200
-    except Exception as err:
-        app.logger.exception("Failed to fetch trends for gap analysis")
+        final_output = generate_trends_from_keywords(keywords)
+    except RuntimeError as err:
         return jsonify({"success": False, "message": str(err)}), 500
+    except Exception as err:
+        app.logger.exception("Trend generation failed")
+        return jsonify({"success": False, "message": "Trend generation failed."}), 500
+
+    return jsonify(final_output), 200
 
 
 @app.route('/api/gap-analysis', methods=['POST'])
@@ -1999,46 +1944,7 @@ def get_website_ids_by_user(user_id):
         except:
             pass
 
-@app.route('/account/upload-json', methods=['POST'])
-@login_required
-def upload_json():
-    user = session.get('user')
-    if not user:
-        return jsonify({"success": False, "message": "Unauthorized"}), 401
 
-    user_id = user.get('user_id')
-    if 'file' not in request.files:
-        return jsonify({"success": False, "message": "No file provided"}), 400
-
-    file = request.files['file']
-    if not file.filename.endswith('.json'):
-        return jsonify({"success": False, "message": "File must be a JSON"}), 400
-
-    try:
-        json_data = json.load(file)
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Invalid JSON: {e}"}), 400
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO user_json_uploads (user_id, json_data)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE 
-                json_data = VALUES(json_data),
-                updated_at = CURRENT_TIMESTAMP
-        """, (user_id, json.dumps(json_data)))
-
-        conn.commit()
-        return jsonify({"success": True, "message": "JSON uploaded successfully."}), 200
-    except Exception as e:
-        app.logger.exception("Failed to save JSON data")
-        return jsonify({"success": False, "message": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
 @app.route('/api/user/<int:user_id>/json-upload', methods=['GET'])
 def get_uploaded_json_by_user(user_id):
     try:

@@ -95,21 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const fallbackBusinesses = [
     {
-      name: 'Lumen Analytics',
-      strapline: 'Predictive marketing OS for retail',
-      audience: 'Retail CMOs & merchandising teams',
-      products: [
-        {
-          name: 'Aster Dashboards',
-          description: 'Self-serve retail KPIs and shopper behaviors',
-          keywords: ['retail analytics', 'dashboards'],
-        },
-        {
-          name: 'Pulse AI Alerts',
-          description: 'Signals when campaigns underperform in specific regions',
-          keywords: ['anomaly detection', 'campaign health'],
-        },
-      ],
+        "name": "3a bayad",
+        "strapline": "Clean protein. Glass bottle. Nothing wasted.",
+        "audience": "People seeking high protein intake",
+        "products": [
+            {
+                "name": "100 Liquid Egg Whites",
+                "description": "Egg whites are pure protein: 11g per serving. Zero fat. Zero cholesterol. No yolk, no waste. The cleanest fuel for your body. With one of the highest protein-per-calorie ratios in nature, it’s lean protein, perfected. Pasteurized for safety — ready to use raw in homemade mayo, garlic paste, and more."
+            },
+        ],
     },
   ];
   const state = {
@@ -483,6 +477,76 @@ document.addEventListener('DOMContentLoaded', () => {
     generateContentBtn.disabled = !canLaunchContentStudio();
   };
 
+  const normalizeKeywords = items => {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map(item => {
+        if (typeof item === 'string') {
+          return { keyword: item };
+        }
+        if (item && typeof item === 'object') {
+          if (item.keyword && typeof item.keyword === 'string') {
+            return { keyword: item.keyword, category: item.category };
+          }
+          if (Array.isArray(item.trend_keywords)) {
+            return item.trend_keywords
+              .filter(kw => typeof kw === 'string' && kw.trim())
+              .map(kw => ({ keyword: kw.trim(), category: item.category }));
+          }
+        }
+        return null;
+      })
+      .flat()
+      .filter(Boolean);
+  };
+
+  const flattenGenerateTrendResults = (payload, fallbackKeywords = []) => {
+    if (!Array.isArray(payload)) return [];
+    const flattened = [];
+    payload.forEach(entry => {
+      if (!entry || entry.error) {
+        return;
+      }
+      const baseKeywords = Array.isArray(entry.keywords) && entry.keywords.length
+        ? entry.keywords
+        : typeof entry.keyword === 'string'
+        ? [entry.keyword]
+        : fallbackKeywords;
+      const results = Array.isArray(entry.results) ? entry.results : [];
+      results.forEach(item => {
+        if (!item) return;
+        const title = item.trend || item.title || item.core_concept || baseKeywords[0];
+        if (!title) return;
+        const descriptionParts = [];
+        if (item.description) descriptionParts.push(item.description);
+        if (item.core_concept && (!item.description || !item.description.includes(item.core_concept))) {
+          descriptionParts.push(item.core_concept);
+        }
+        if (item.business_value) descriptionParts.push(item.business_value);
+        if (item.target_audience && item.target_audience !== 'unknown') {
+          descriptionParts.push(`Audience: ${item.target_audience}`);
+        }
+        if (item.domain && item.domain !== 'unknown') {
+          descriptionParts.push(`Domain: ${item.domain}`);
+        }
+        const description = descriptionParts.join(' ').trim() || `Trend insight generated for ${title}.`;
+        const keywords = Array.isArray(item.keywords) && item.keywords.length
+          ? item.keywords
+          : baseKeywords.length
+          ? baseKeywords
+          : fallbackKeywords;
+        flattened.push({
+          trend: title,
+          description,
+          keywords,
+          source: item.source || 'generate-trends',
+          url: item.url || '',
+        });
+      });
+    });
+    return flattened;
+  };
+
   const renderKeywords = () => {
     if (!keywordList) return;
     keywordList.innerHTML = '';
@@ -552,7 +616,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error('Failed to load keywords');
       const data = await response.json();
       if (!data.success) throw new Error(data.message || 'Cannot load keywords');
-      state.keywords = data.keywords || [];
+      const normalized = normalizeKeywords(data.keywords || []);
+      state.keywords = normalized;
       if (!state.keywords.length) {
         applyFallbackKeywords('No saved keywords yet. Using starter keywords.');
         return;
@@ -676,10 +741,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setTrendStatus('Trend API not configured.', true);
       return;
     }
-    if (!userId) {
-      setTrendStatus('User session missing. Please sign in again.', true);
-      return;
-    }
     if (!state.selectedKeywordIds.size) {
       setTrendStatus('Select at least one keyword first.', true);
       return;
@@ -695,29 +756,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setTrendStatus('Unable to resolve selected keywords. Refresh and try again.', true);
         return;
       }
-      const keywordIds = [];
       const keywordLabels = [];
       selectedRows.forEach(item => {
-        const rawId = item.id;
         const label = item.keyword;
-        if (rawId === undefined || rawId === null || rawId === '') {
-          if (label) keywordLabels.push(label);
-          return;
-        }
-        const numericId = Number(rawId);
-        if (!Number.isNaN(numericId)) {
-          keywordIds.push(numericId);
-        } else if (label) {
-          keywordLabels.push(label);
-        }
+        if (label) keywordLabels.push(label);
       });
-      const payload = {
-        user_id: userId,
-        keyword_ids: keywordIds,
-      };
-      if (keywordLabels.length) {
-        payload.keywords = keywordLabels;
-      };
+      if (!keywordLabels.length) {
+        setTrendStatus('Unable to resolve selected keywords. Refresh and try again.', true);
+        return;
+      }
+      const payload = { keywords: keywordLabels };
       const response = await fetch(trendsApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -725,8 +773,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (!response.ok) throw new Error('Trend fetch failed');
       const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Unable to fetch trends');
-      state.trends = data.trends || [];
+      let normalizedTrends = [];
+      if (Array.isArray(data)) {
+        normalizedTrends = flattenGenerateTrendResults(data, keywordLabels);
+      } else if (data && Array.isArray(data.trends)) {
+        normalizedTrends = data.trends;
+      } else if (data && data.success && Array.isArray(data.data)) {
+        normalizedTrends = data.data;
+      } else {
+        throw new Error(data && data.message ? data.message : 'Unable to fetch trends');
+      }
+      state.trends = normalizedTrends || [];
       state.selectedTrendIndexes.clear();
       renderTrends();
       setTrendStatus('Trends updated. Pick the ones you want to analyze.');
