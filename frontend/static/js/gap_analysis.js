@@ -92,25 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastCoverageSummary = null;
   const actionPlanStorageKey = 'gap-action-plan';
   let actionPlanStates = {};
-  const fallbackKeywords = [
-    { keyword: 'AI copilots', category: 'Product' },
-    { keyword: 'Zero-party data', category: 'Data' },
-    { keyword: 'Workflow automation', category: 'Operations' },
-    { keyword: 'Revenue analytics', category: 'Growth' },
-  ];
-  const fallbackBusinesses = [
-    {
-        "name": "shein",
-        "strapline": "Best chinese products.",
-        "audience": "People who like shopping",
-        "products": [
-            {
-                "name": "tshirt",
-                "description": "Best black cotton tshirt"
-            },
-        ],
-    },
-  ];
   const state = {
     keywords: [],
     selectedKeywordIds: new Set(),
@@ -680,19 +661,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHeroStats();
   };
 
-  const applyFallbackKeywords = message => {
-    state.keywords = fallbackKeywords.map(item => ({ ...item }));
-    state.keywordFilter = '';
-    state.selectedKeywordIds.clear();
-    renderKeywords();
-    if (keywordEmptyState) keywordEmptyState.textContent = message;
-    updateSelectionPills();
-    updateHeroStats();
-  };
-
   const fetchKeywords = async () => {
     if (!keywordsApi || !userId) {
-      applyFallbackKeywords('Keyword API not configured. Using starter keywords.');
+      state.keywords = [];
+      state.keywordFilter = '';
+      state.selectedKeywordIds.clear();
+      renderKeywords();
+      if (keywordEmptyState) {
+        keywordEmptyState.textContent =
+          'Add your website URL in your account settings first.';
+      }
       return;
     }
     if (keywordEmptyState) keywordEmptyState.textContent = 'Loading keywords…';
@@ -703,15 +681,24 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data.success) throw new Error(data.message || 'Cannot load keywords');
       const normalized = normalizeKeywords(data.keywords || []);
       state.keywords = normalized;
+      state.selectedKeywordIds.clear();
       if (!state.keywords.length) {
-        applyFallbackKeywords('No saved keywords yet. Using starter keywords.');
+        renderKeywords();
+        if (keywordEmptyState) {
+          keywordEmptyState.textContent = 'No saved keywords yet. Add your website URL in your account settings first.';
+        }
         return;
       }
-      state.selectedKeywordIds.clear();
       renderKeywords();
       if (keywordEmptyState) keywordEmptyState.textContent = '';
     } catch (err) {
-      applyFallbackKeywords(`Using starter keywords (${err.message}).`);
+      console.error('Failed to load keywords', err);
+      state.keywords = [];
+      state.selectedKeywordIds.clear();
+      renderKeywords();
+      if (keywordEmptyState) {
+        keywordEmptyState.textContent = `Unable to load keywords (${err.message}).`;
+      }
     }
   };
 
@@ -747,15 +734,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSelectionPills();
   };
 
-  const applyFallbackBusinesses = message => {
-    state.businesses = fallbackBusinesses;
-    renderCatalog();
-    if (catalogEmptyState) catalogEmptyState.textContent = message;
-  };
-
   const fetchBusinesses = async () => {
     if (!businessApi || !userId) {
-      applyFallbackBusinesses('Business API not configured. Using demo products.');
+      state.businesses = [];
+      renderCatalog();
+      if (catalogEmptyState) {
+        catalogEmptyState.textContent =
+          'Business API not configured. Add products from your account profile.';
+      }
       return;
     }
     if (catalogEmptyState) catalogEmptyState.textContent = 'Loading product catalog…';
@@ -766,13 +752,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data.success) throw new Error(data.message || 'Cannot load catalog');
       state.businesses = data.businesses || [];
       if (!state.businesses.length) {
-        applyFallbackBusinesses('No products saved yet. Showing demo catalog.');
+        renderCatalog();
+        if (catalogEmptyState) {
+          catalogEmptyState.textContent = 'No products saved yet. Upload your products in Upload Profile page.';
+        }
         return;
       }
       renderCatalog();
       if (catalogEmptyState) catalogEmptyState.textContent = '';
     } catch (err) {
-      applyFallbackBusinesses(`Using demo catalog (${err.message}).`);
+      console.error('Failed to load catalog', err);
+      state.businesses = [];
+      renderCatalog();
+      if (catalogEmptyState) {
+        catalogEmptyState.textContent = `Unable to load product catalog (${err.message}).`;
+      }
     }
   };
 

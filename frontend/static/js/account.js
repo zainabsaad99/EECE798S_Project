@@ -67,16 +67,23 @@ if (profileForm) {
   })
 }
 
-// Company Form Handler
-// Company Form Handler
+// Company Form - Separate button handlers
 const companyForm = document.getElementById("companyForm")
+// Prevent form submission on Enter key
 if (companyForm) {
-  companyForm.addEventListener("submit", async (e) => {
+  companyForm.addEventListener("submit", (e) => {
+    e.preventDefault()
+  })
+}
+
+// Save LinkedIn Button Handler
+const saveLinkedInBtn = document.getElementById("saveLinkedInBtn")
+if (saveLinkedInBtn && companyForm) {
+  saveLinkedInBtn.addEventListener("click", async (e) => {
     e.preventDefault()
 
     const formData = new FormData(companyForm)
     const linkedinUrl = formData.get("linkedin")
-    const websiteUrl = formData.get("website")
     
     // Require LinkedIn
     if (!linkedinUrl || linkedinUrl.trim() === '') {
@@ -84,25 +91,14 @@ if (companyForm) {
       return
     }
 
-    // ⭐ NEW: Require Website
-    if (!websiteUrl || websiteUrl.trim() === '') {
-      alert("Company Website is required before saving.")
-      return
-    }
-
     const data = {
-      company: formData.get("company"),
-      website: websiteUrl,
       linkedin: linkedinUrl,
-      industry: formData.get("industry"),
-      company_size: formData.get("company_size"),
     }
 
     // Show loading state
-    const submitBtn = companyForm.querySelector('button[type="submit"]')
-    const originalText = submitBtn.textContent
-    submitBtn.disabled = true
-    submitBtn.textContent = "Saving and analyzing profile..."
+    saveLinkedInBtn.disabled = true
+    const originalText = saveLinkedInBtn.textContent
+    saveLinkedInBtn.textContent = "Saving and analyzing profile..."
 
     try {
       const res = await fetch("/account", {
@@ -114,19 +110,111 @@ if (companyForm) {
       
       if (result.success) {
         if (result.linkedin_processed) {
-          showStatus("Profile saved! Your LinkedIn profile has been analyzed. You can now use the LinkedIn Agent.", 'success')
+          showStatus("LinkedIn saved! Your LinkedIn profile has been analyzed. You can now use the LinkedIn Agent.", 'success')
         } else {
-          showStatus(result.message || "Profile saved!", 'success')
+          showStatus(result.message || "LinkedIn saved successfully!", 'success')
         }
       } else {
-        showStatus(result.message || "Error saving profile", 'error')
+        showStatus(result.message || "Error saving LinkedIn", 'error')
       }
     } catch (err) {
       console.error(err)
       showStatus("An unexpected error occurred.", 'error')
     } finally {
-      submitBtn.disabled = false
-      submitBtn.textContent = originalText
+      saveLinkedInBtn.disabled = false
+      saveLinkedInBtn.textContent = originalText
+    }
+  })
+}
+
+// Save Website Button Handler
+const saveWebsiteBtn = document.getElementById("saveWebsiteBtn")
+if (saveWebsiteBtn && companyForm) {
+  saveWebsiteBtn.addEventListener("click", async (e) => {
+    e.preventDefault()
+
+    const formData = new FormData(companyForm)
+    const websiteUrl = formData.get("website")
+    const companyName = formData.get("company")
+    
+    // Require Website
+    if (!websiteUrl || websiteUrl.trim() === '') {
+      showStatus("Company Website is required before saving.", 'error')
+      return
+    }
+
+    const data = {
+      company: companyName,
+      website: websiteUrl,
+    }
+
+    // Show loading state
+    saveWebsiteBtn.disabled = true
+    const originalText = saveWebsiteBtn.textContent
+    saveWebsiteBtn.textContent = "Saving and extracting website data..."
+
+    try {
+      const res = await fetch("/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      const result = await res.json()
+      
+      if (result.success) {
+        showStatus(result.message || "Website saved and data extracted successfully!", 'success')
+      } else {
+        showStatus(result.message || "Error saving website", 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      showStatus("An unexpected error occurred.", 'error')
+    } finally {
+      saveWebsiteBtn.disabled = false
+      saveWebsiteBtn.textContent = originalText
+    }
+  })
+}
+
+// Save Industry & Company Size Button Handler
+const saveIndustryBtn = document.getElementById("saveIndustryBtn")
+if (saveIndustryBtn && companyForm) {
+  saveIndustryBtn.addEventListener("click", async (e) => {
+    e.preventDefault()
+
+    const formData = new FormData(companyForm)
+    const industry = formData.get("industry")
+    const companySize = formData.get("company_size")
+
+    const data = {
+      industry: industry,
+      company_size: companySize,
+    }
+
+    // Show loading state
+    saveIndustryBtn.disabled = true
+    const originalText = saveIndustryBtn.textContent
+    saveIndustryBtn.textContent = "Saving..."
+
+    try {
+      const res = await fetch("/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      const result = await res.json()
+      
+      if (result.success) {
+        showStatus("Industry and company size saved successfully!", 'success')
+      } else {
+        showStatus(result.message || "Error saving industry and company size", 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      showStatus("An unexpected error occurred.", 'error')
+    } finally {
+      saveIndustryBtn.disabled = false
+      saveIndustryBtn.textContent = originalText
     }
   })
 }
