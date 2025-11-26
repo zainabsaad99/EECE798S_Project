@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mainEl = document.querySelector('.app-main');
   if (!mainEl) return;
   const apiEndpoint = mainEl.dataset.contentApi || '';
+  const userId = mainEl.dataset.userId || '';
 
   const brandSummaryInput = document.getElementById('brandSummary');
   const campaignGoalInput = document.getElementById('campaignGoal');
@@ -23,7 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const posterPreview = document.getElementById('posterPreview');
   const statusText = document.getElementById('generationStatus');
   const proposalPrefillGroup = document.getElementById('proposalPrefillGroup');
-  const proposalSelect = document.getElementById('proposalSelect');
+  const proposalSelect = document.getElementById('proposalSelect'); // Hidden input
+  const proposalSelectWrapper = document.getElementById('proposalSelectWrapper');
+  const proposalSelectTrigger = document.getElementById('proposalSelectTrigger');
+  const proposalSelectMenu = document.getElementById('proposalSelectMenu');
   const proposalPreview = document.getElementById('proposalPreview');
   const proposalPrefillHint = document.getElementById('proposalPrefillHint');
   const applyProposalBtn = document.getElementById('applyProposalBtn');
@@ -66,8 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncProposalSelection = context => {
     if (!proposalSelect || !context) return;
     const idx = findProposalIndex(context);
-    if (idx >= 0) {
+    if (idx >= 0 && availableProposals[idx]) {
       proposalSelect.value = String(idx);
+      if (proposalSelectTrigger) {
+        const proposal = availableProposals[idx];
+        const label = `${proposal.trend || 'Trend'} (${getCoverageLabel(proposal.coverage_level)})`;
+        const textEl = proposalSelectTrigger.querySelector('.custom-dropdown-text');
+        if (textEl) textEl.textContent = label;
+      }
       updateProposalPreview(availableProposals[idx]);
     }
   };
@@ -315,26 +325,81 @@ document.addEventListener('DOMContentLoaded', () => {
     proposalPreview.textContent = `${proposal.trend || 'Trend'} · ${persona} · ${coverage}`;
   };
 
+  // Helper function to format text with word wrapping (max 8 words per visual line)
+  // Insert zero-width spaces and line breaks to encourage wrapping
+  const formatOptionText = (text) => {
+    const words = text.split(/\s+/);
+    const maxWordsPerLine = 8;
+    const formattedWords = [];
+    
+    // Add words with zero-width space after every 8 words to encourage wrapping
+    for (let i = 0; i < words.length; i++) {
+      formattedWords.push(words[i]);
+      // Insert zero-width space after every 8 words (except the last word)
+      if ((i + 1) % maxWordsPerLine === 0 && i < words.length - 1) {
+        // Add zero-width space and a regular space to encourage wrapping
+        formattedWords.push('\u200B '); // Zero-width space + regular space
+      } else if (i < words.length - 1) {
+        formattedWords.push(' '); // Regular space between words
+      }
+    }
+    
+    return formattedWords.join('');
+  };
+
   const setProposalPicker = proposals => {
     availableProposals = Array.isArray(proposals) ? proposals : [];
-    if (!proposalPrefillGroup || !proposalSelect) return;
+    if (!proposalPrefillGroup) return;
+    
+    const proposalSelectWrapper = document.getElementById('proposalSelectWrapper');
+    const proposalSelectTrigger = document.getElementById('proposalSelectTrigger');
+    const proposalSelectMenu = document.getElementById('proposalSelectMenu');
+    const proposalSelectText = proposalSelectTrigger?.querySelector('.custom-dropdown-text');
+    const proposalSelectHidden = document.getElementById('proposalSelect');
+    
+    if (!proposalSelectWrapper || !proposalSelectTrigger || !proposalSelectMenu || !proposalSelectText || !proposalSelectHidden) return;
+    
     if (!availableProposals.length) {
       proposalPrefillGroup.hidden = true;
       updateProposalPreview(null);
       return;
     }
     proposalPrefillGroup.hidden = false;
-    proposalSelect.innerHTML = availableProposals
-      .map((item, idx) => {
-        const label = `${item.trend || 'Trend'} (${getCoverageLabel(item.coverage_level)})`;
-        return `<option value="${idx}">${label}</option>`;
-      })
-      .join('');
-    proposalSelect.value = '0';
-    updateProposalPreview(availableProposals[0]);
+    
+    // Clear existing options
+    proposalSelectMenu.innerHTML = '';
+    
+    // Create custom dropdown options
+    availableProposals.forEach((item, idx) => {
+      const label = `${item.trend || 'Trend'} (${getCoverageLabel(item.coverage_level)})`;
+      const optionEl = document.createElement('div');
+      optionEl.className = 'custom-dropdown-option';
+      optionEl.dataset.value = idx;
+      optionEl.innerHTML = `<span class="custom-dropdown-option-text">${label}</span>`;
+      
+      optionEl.addEventListener('click', () => {
+        proposalSelectHidden.value = idx;
+        proposalSelectText.textContent = label;
+        proposalSelectWrapper.classList.remove('open');
+        updateProposalPreview(availableProposals[idx]);
+        syncProposalSelection(currentProposalContext);
+      });
+      
+      proposalSelectMenu.appendChild(optionEl);
+    });
+    
+    // Set initial value
+    if (availableProposals.length > 0) {
+      const firstLabel = `${availableProposals[0].trend || 'Trend'} (${getCoverageLabel(availableProposals[0].coverage_level)})`;
+      proposalSelectHidden.value = '0';
+      proposalSelectText.textContent = firstLabel;
+      updateProposalPreview(availableProposals[0]);
+    }
+    
     if (proposalPrefillHint) {
       proposalPrefillHint.textContent = 'Select a concept and click Use Proposal to auto-fill the brief.';
     }
+    
     syncProposalSelection(currentProposalContext);
   };
 
@@ -580,6 +645,11 @@ document.addEventListener('DOMContentLoaded', () => {
       outputs: [...selectedOutputs],
     };
     
+    // Add user_id for tracking
+    if (userId) {
+      payload.user_id = userId;
+    }
+    
     // Add proposal narrative (similar to ad_text in content studio)
     if (proposalNarrative) {
       payload.proposal_narrative = proposalNarrative;
@@ -764,11 +834,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  proposalSelect?.addEventListener('change', () => {
-    const idx = Number(proposalSelect.value);
-    const proposal = Number.isInteger(idx) ? availableProposals[idx] : null;
-    updateProposalPreview(proposal);
-  });
+  // Custom dropdown toggle
+  if (proposalSelectTrigger && proposalSelectMenu) {
+    proposalSelectTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      proposalSelectWrapper?.classList.toggle('open');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (proposalSelectWrapper && !proposalSelectWrapper.contains(e.target)) {
+        proposalSelectWrapper.classList.remove('open');
+      }
+    });
+  }
+  
+  // Handle proposal selection change (for compatibility with hidden input)
+  if (proposalSelect) {
+    proposalSelect.addEventListener('change', () => {
+      const idx = Number(proposalSelect.value);
+      const proposal = Number.isInteger(idx) ? availableProposals[idx] : null;
+      updateProposalPreview(proposal);
+    });
+  }
 
   applyProposalBtn?.addEventListener('click', () => {
     const idx = Number(proposalSelect?.value);

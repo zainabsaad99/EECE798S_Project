@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const mainEl = document.querySelector('.app-main');
   const apiEndpoint = mainEl?.dataset.contentApi || '';
+  const userId = mainEl?.dataset.userId || '';
 
   const brandSummaryInput = document.getElementById('brandSummary');
   const campaignGoalInput = document.getElementById('campaignGoal');
@@ -329,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoPosition = logoPositionSelect.value;
     const logoScale = logoScaleInput.value || '0.18';
 
-    return {
+    const payload = {
       brand_summary: summary || adText,
       campaign_goal: goal || 'General awareness',
       target_audience: audience || 'General audience',
@@ -340,6 +341,13 @@ document.addEventListener('DOMContentLoaded', () => {
       logo_scale: logoScale,
       outputs: selectedOutputs, // Send outputs to backend to conditionally generate images
     };
+    
+    // Add user_id for tracking
+    if (userId) {
+      payload.user_id = userId;
+    }
+    
+    return payload;
   };
 
   const handleCopyAction = button => {

@@ -20,7 +20,7 @@
     </button>
 
     <div class="layout-with-sidebar">
-        <main class="app-main" data-content-api="{{ content_api }}">
+        <main class="app-main" data-content-api="{{ content_api }}" data-user-id="{{ user.id if user else '' }}">
             <header class="app-header">
                 <div class="app-header-content">
                     <div class="header-left">

@@ -32,6 +32,9 @@ def login_required(f):
 @app.route('/')
 def index():
     user = session.get('user')
+    # If user is logged in, redirect to dashboard
+    if user:
+        return redirect(url_for('home'))
     return render_template('index.html', user=user)
 
 @app.route('/signup', methods=['GET', 'POST'])

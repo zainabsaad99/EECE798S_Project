@@ -92,6 +92,12 @@
   transition: all 0.2s;
 }
 
+/* Select elements inherit from global styles in styles.css */
+.form-input[type="select"],
+select.form-input {
+  /* Uses global enhanced dropdown styles */
+}
+
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
@@ -151,6 +157,51 @@
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Status Messages */
+.status-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+
+.status-info {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+}
+
+.status-success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #bbf7d0;
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
