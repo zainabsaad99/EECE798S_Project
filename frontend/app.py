@@ -412,7 +412,7 @@ def gap_analysis():
     # keywords_api = f"{backend_base}/api/gap/keywords"
     keywords_api = f"{backend_base}/get-trend-keywords-list/{user_id}"
     
-    business_api = f"{backend_base}/api/gap/businesses"
+    business_api = f"{backend_base}/get-json/{user_id}"
     trends_api = f"{backend_base}/api/gap/trends"
     print(f"trend api {keywords_api}", flush=True)
     return render_template(

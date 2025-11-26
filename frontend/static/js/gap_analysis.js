@@ -63,6 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const proposalDetailsBody = document.getElementById('proposalDetailsBody');
   const downloadProposalsBtn = document.getElementById('downloadProposalsBtn');
   const panelToggleInputs = document.querySelectorAll('[data-panel-target]');
+  const heroKeywordCount = document.getElementById('heroKeywordCount');
+  const heroTrendCount = document.getElementById('heroTrendCount');
+  const heroGapCount = document.getElementById('heroGapCount');
+  const trendMarqueeTrack = document.getElementById('trendMarquee');
 
   if (
     !analyzeBtn ||
@@ -85,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let proposalFilter = 'all';
   let proposalView = 'cards';
   let pendingContentPrefill = null;
+  let lastCoverageSummary = null;
   const actionPlanStorageKey = 'gap-action-plan';
   let actionPlanStates = {};
   const fallbackKeywords = [
@@ -95,13 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const fallbackBusinesses = [
     {
-        "name": "3a bayad",
-        "strapline": "Clean protein. Glass bottle. Nothing wasted.",
-        "audience": "People seeking high protein intake",
+        "name": "shein",
+        "strapline": "Best chinese products.",
+        "audience": "People who like shopping",
         "products": [
             {
-                "name": "100 Liquid Egg Whites",
-                "description": "Egg whites are pure protein: 11g per serving. Zero fat. Zero cholesterol. No yolk, no waste. The cleanest fuel for your body. With one of the highest protein-per-calorie ratios in nature, it’s lean protein, perfected. Pasteurized for safety — ready to use raw in homemade mayo, garlic paste, and more."
+                "name": "tshirt",
+                "description": "Best black cotton tshirt"
             },
         ],
     },
@@ -130,6 +135,31 @@ document.addEventListener('DOMContentLoaded', () => {
     covered: document.getElementById('coveredCard'),
     weak: document.getElementById('weakCard'),
     gap: document.getElementById('gapCard'),
+  };
+  const analysisPhases = [
+    'Streaming insights in real time…',
+    'Cross-checking coverage against catalog…',
+    'Synthesizing insights and recommendations…',
+    'Packaging product proposals for you…',
+  ];
+  let analysisPhaseTimer = null;
+  let analysisPhaseIndex = 0;
+
+  const startAnalysisProgress = () => {
+    stopAnalysisProgress();
+    analysisPhaseIndex = 0;
+    setStatus(analysisPhases[analysisPhaseIndex]);
+    analysisPhaseTimer = setInterval(() => {
+      analysisPhaseIndex = (analysisPhaseIndex + 1) % analysisPhases.length;
+      setStatus(analysisPhases[analysisPhaseIndex]);
+    }, 2500);
+  };
+
+  const stopAnalysisProgress = () => {
+    if (analysisPhaseTimer) {
+      clearInterval(analysisPhaseTimer);
+      analysisPhaseTimer = null;
+    }
   };
 
   const setActiveProposalView = view => {
@@ -209,6 +239,48 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!isHidden) {
       card.classList.add('fading-out');
     }
+  };
+
+  const updateHeroStats = (incomingSummary = null) => {
+    if (incomingSummary) {
+      lastCoverageSummary = incomingSummary;
+    }
+    if (heroKeywordCount) {
+      heroKeywordCount.textContent = String(state.keywords.length || 0);
+    }
+    if (heroTrendCount) {
+      heroTrendCount.textContent = String(state.selectedTrendIndexes.size || 0);
+    }
+    if (heroGapCount) {
+      const summary = incomingSummary || lastCoverageSummary;
+      const gapCount = summary && summary.gap ? summary.gap.count ?? summary.gap : 0;
+      heroGapCount.textContent = String(gapCount || 0);
+    }
+  };
+
+  const renderTrendMarquee = () => {
+    if (!trendMarqueeTrack) return;
+    trendMarqueeTrack.innerHTML = '';
+    const list = state.trends.slice(0, 8);
+    if (!list.length) {
+      const span = document.createElement('span');
+      span.textContent = 'Feed will populate after you pull live trends.';
+      trendMarqueeTrack.appendChild(span);
+      return;
+    }
+    const phrases = list
+      .map(item => {
+        const name = item.trend || item.name || 'Trend';
+        const impact = item.impact || item.insight || '';
+        return impact ? `${name} — ${impact}` : name;
+      })
+      .filter(Boolean);
+    const loop = phrases.length ? [...phrases, ...phrases] : ['Trends updating…'];
+    loop.forEach(text => {
+      const span = document.createElement('span');
+      span.textContent = text;
+      trendMarqueeTrack.appendChild(span);
+    });
   };
 
   const getSelectedTrends = () =>
@@ -547,6 +619,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return flattened;
   };
 
+  const normalizeTrendPayloadArray = (payload, fallbackKeywords = []) => {
+    if (!Array.isArray(payload) || !payload.length) return [];
+    const hasNestedResults = payload.some(item => Array.isArray(item?.results));
+    if (hasNestedResults) {
+      return flattenGenerateTrendResults(payload, fallbackKeywords);
+    }
+    return payload;
+  };
+
   const renderKeywords = () => {
     if (!keywordList) return;
     keywordList.innerHTML = '';
@@ -554,11 +635,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!Array.isArray(state.keywords) || !state.keywords.length) {
       if (keywordEmptyState) keywordEmptyState.textContent = 'No keywords saved yet. Add some from your account.';
       updateSelectionPills();
+      updateHeroStats();
       return;
     }
     if (!dataset.length) {
       if (keywordEmptyState) keywordEmptyState.textContent = 'No keywords match your search.';
       updateSelectionPills();
+      updateHeroStats();
       return;
     }
     if (keywordEmptyState) keywordEmptyState.textContent = '';
@@ -594,6 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
       keywordList.appendChild(btn);
     });
     updateSelectionPills();
+    updateHeroStats();
   };
 
   const applyFallbackKeywords = message => {
@@ -603,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderKeywords();
     if (keywordEmptyState) keywordEmptyState.textContent = message;
     updateSelectionPills();
+    updateHeroStats();
   };
 
   const fetchKeywords = async () => {
@@ -697,6 +782,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!Array.isArray(state.trends) || !state.trends.length) {
       if (trendEmptyState) trendEmptyState.textContent = 'No trends yet. Try different keywords.';
       updateSelectionPills();
+      updateHeroStats();
+      renderTrendMarquee();
       return;
     }
     if (trendEmptyState) trendEmptyState.textContent = '';
@@ -730,10 +817,13 @@ document.addEventListener('DOMContentLoaded', () => {
           card.classList.add('selected');
         }
         updateSelectionPills();
+        updateHeroStats();
       });
       trendResults.appendChild(card);
     });
     updateSelectionPills();
+    updateHeroStats();
+    renderTrendMarquee();
   };
 
   const discoverTrends = async () => {
@@ -775,11 +865,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await response.json();
       let normalizedTrends = [];
       if (Array.isArray(data)) {
-        normalizedTrends = flattenGenerateTrendResults(data, keywordLabels);
+        normalizedTrends = normalizeTrendPayloadArray(data, keywordLabels);
       } else if (data && Array.isArray(data.trends)) {
-        normalizedTrends = data.trends;
+        normalizedTrends = normalizeTrendPayloadArray(data.trends, keywordLabels);
       } else if (data && data.success && Array.isArray(data.data)) {
-        normalizedTrends = data.data;
+        normalizedTrends = normalizeTrendPayloadArray(data.data, keywordLabels);
       } else {
         throw new Error(data && data.message ? data.message : 'Unable to fetch trends');
       }
@@ -1079,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = '';
     if (!summary) {
       container.innerHTML = '<div class="summary-chip"><p>No coverage data.</p></div>';
+      updateHeroStats();
       return;
     }
     Object.entries(summary).forEach(([key, value]) => {
@@ -1089,6 +1180,7 @@ document.addEventListener('DOMContentLoaded', () => {
       div.innerHTML = `<h4>${value.count}</h4><p>${label} (${value.percent || 0}%)</p>`;
       container.appendChild(div);
     });
+    updateHeroStats(summary);
   };
 
   const formatInteger = value => Math.round(value).toLocaleString();
@@ -1594,6 +1686,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setView('idle');
   setProgress('keywords');
   updateSelectionPills();
+  renderTrendMarquee();
+  updateHeroStats();
   setTrendStatus('Select keywords then run Find Trends.');
   setStatus('Load your products and pick the trends you want to analyze.');
   fetchKeywords();

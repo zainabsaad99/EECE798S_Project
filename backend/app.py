@@ -43,21 +43,15 @@ DEFAULT_GAP_KEYWORDS = [
 
 DEFAULT_GAP_BUSINESSES = [
     {
-        "name": "Lumen Analytics",
-        "strapline": "Predictive marketing OS for retail",
-        "audience": "Retail CMOs & merchandising teams",
+        "name": "shein",
+        "strapline": "Best chinese products.",
+        "audience": "People who like shopping",
         "products": [
             {
-                "name": "Aster Dashboards",
-                "description": "Self-serve retail KPIs and shopper behaviors",
-                "keywords": ["retail analytics", "dashboards"],
-            },
-            {
-                "name": "Pulse AI Alerts",
-                "description": "Signals when campaigns underperform in specific regions",
-                "keywords": ["anomaly detection", "campaign health"],
-            },
-        ],
+                "name": "tshirt",
+                "description": "Best black cotton tshirt"
+            }
+        ]
     }
 ]
 
@@ -1983,12 +1977,27 @@ def get_uploaded_json(user_id):
 
         if not row or not row[0]:
             return jsonify({"success": False, "message": "No JSON data found for this user"}), 404
+        try:
+            payload = json.loads(row[0])
+        except Exception:
+            payload = row[0]
 
-        return jsonify({
-            "success": True,
-            "user_id": user_id,
-            "json_data": row[0]  # Already JSON in MySQL
-        }), 200
+        if isinstance(payload, dict) and "businesses" in payload:
+            business_list = payload.get("businesses") or []
+        else:
+            business_list = payload if isinstance(payload, list) else []
+
+        total_products = 0
+        for biz in business_list:
+            if isinstance(biz, dict):
+                products = biz.get("products") or []
+                total_products += len(products) if isinstance(products, list) else 0
+
+        meta = {
+            "total_businesses": len(business_list),
+            "total_products": total_products,
+        }
+        return jsonify({"success": True, "businesses": business_list, "meta": meta})
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
