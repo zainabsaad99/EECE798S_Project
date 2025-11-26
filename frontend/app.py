@@ -133,7 +133,7 @@ def account():
         # Save the basic account info first
         try:
             
-            response = requests.post(f"{PUBLIC_BACKEND_URL}/account", json={**data, "user_id": user_id})
+            response = requests.post(f"{BACKEND_API_URL}/account", json={**data, "user_id": user_id})
             response.raise_for_status()
         except Exception as e:
             return jsonify({"success": False, "message": f"Failed to update profile: {e}"}), 500
