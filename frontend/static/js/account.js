@@ -1,3 +1,40 @@
+// Status message handler
+function showStatus(message, type = 'info') {
+  let statusContainer = document.getElementById('statusMessages');
+  if (!statusContainer) {
+    // Create status container if it doesn't exist
+    statusContainer = document.createElement('div');
+    statusContainer.id = 'statusMessages';
+    statusContainer.className = 'status-messages';
+    const firstForm = document.querySelector('.account-form');
+    if (firstForm) {
+      firstForm.parentNode.insertBefore(statusContainer, firstForm);
+    } else {
+      document.querySelector('.account-main')?.appendChild(statusContainer);
+    }
+  }
+  
+  const messageEl = document.createElement('div');
+  messageEl.className = `status-message status-${type}`;
+  messageEl.textContent = message;
+  
+  statusContainer.innerHTML = ''; // Clear previous messages
+  statusContainer.appendChild(messageEl);
+  
+  // Auto-remove success messages after 3 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      messageEl.style.opacity = '0';
+      messageEl.style.transform = 'translateY(-5px)';
+      setTimeout(() => {
+        if (messageEl.parentNode) {
+          messageEl.parentNode.removeChild(messageEl);
+        }
+      }, 300);
+    }, 3000);
+  }
+}
+
 async function updateAccount(data) {
   try {
     const res = await fetch("/account", {
@@ -6,10 +43,10 @@ async function updateAccount(data) {
       body: JSON.stringify(data),
     })
     const result = await res.json()
-    alert(result.message || (result.success ? "Saved!" : "Error"))
+    showStatus(result.message || (result.success ? "Saved!" : "Error"), result.success ? 'success' : 'error')
   } catch (err) {
     console.error(err)
-    alert("An unexpected error occurred.")
+    showStatus("An unexpected error occurred.", 'error')
   }
 }
 
@@ -43,7 +80,7 @@ if (companyForm) {
     
     // Require LinkedIn
     if (!linkedinUrl || linkedinUrl.trim() === '') {
-      alert("LinkedIn Profile URL is required to use the LinkedIn Agent feature.")
+      showStatus("LinkedIn Profile URL is required to use the LinkedIn Agent feature.", 'error')
       return
     }
 
@@ -77,16 +114,16 @@ if (companyForm) {
       
       if (result.success) {
         if (result.linkedin_processed) {
-          alert("Profile saved! Your LinkedIn profile has been analyzed. You can now use the LinkedIn Agent.")
+          showStatus("Profile saved! Your LinkedIn profile has been analyzed. You can now use the LinkedIn Agent.", 'success')
         } else {
-          alert(result.message || "Profile saved!")
+          showStatus(result.message || "Profile saved!", 'success')
         }
       } else {
-        alert(result.message || "Error saving profile")
+        showStatus(result.message || "Error saving profile", 'error')
       }
     } catch (err) {
       console.error(err)
-      alert("An unexpected error occurred.")
+      showStatus("An unexpected error occurred.", 'error')
     } finally {
       submitBtn.disabled = false
       submitBtn.textContent = originalText

@@ -75,6 +75,7 @@
 .logo-text {
   background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -141,8 +142,8 @@
 }
 
 .form-group textarea,
-.form-group select,
-.form-group input[type="file"] {
+.form-group input[type="text"],
+.form-group input[type="number"] {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: var(--radius-md);
@@ -155,11 +156,67 @@
 }
 
 .form-group textarea:focus,
-.form-group select:focus,
-.form-group input[type="file"]:focus {
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+/* Enhanced Select/Dropdown Styling - Now uses global styles from styles.css */
+/* All select styling is handled globally in styles.css for consistency */
+
+/* Enhanced File Upload Button Styling */
+.form-group input[type="file"] {
+  width: 100%;
+  border: 2px dashed rgba(148, 163, 184, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--text-primary);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.form-group input[type="file"]::file-selector-button {
+  padding: 0.6rem 1.25rem;
+  margin-right: 1rem;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.form-group input[type="file"]::file-selector-button:hover {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.form-group input[type="file"]::file-selector-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+
+.form-group input[type="file"]:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.form-group input[type="file"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  background: rgba(15, 23, 42, 0.75);
 }
 
 .form-hint {
@@ -253,6 +310,58 @@
   color: var(--text-secondary);
 }
 
+.status-messages-container {
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.status-message {
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: var(--text-primary);
+  animation: slideIn 0.3s ease-out;
+  width: 100%;
+  text-align: center;
+}
+
+.status-message.status-info {
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-color);
+}
+
+.status-message.status-success {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.status-message.status-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .results-placeholder {
   flex: 1;
   display: flex;
@@ -329,6 +438,7 @@
 .result-content {
   padding: 1.5rem;
   color: var(--text-secondary);
+  overflow: hidden;
 }
 
 .text-ready {
@@ -337,8 +447,74 @@
   color: #16a34a;
 }
 
+.editable-text {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--text-primary);
+  resize: vertical;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.editable-text:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.regenerate-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  justify-content: center;
+}
+
+.regenerate-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.95rem;
+}
+
+.regenerate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.regenerate-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .poster-display {
   position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.poster-display img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: var(--radius-md);
 }
 
 .poster-placeholder {
@@ -348,6 +524,11 @@
   text-align: center;
   font-weight: 600;
   color: var(--text-primary);
+  width: 100%;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .poster-ready {
@@ -361,6 +542,39 @@
   font-size: 0.75rem;
 }
 
+.video-display {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.generated-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius-md);
+  display: block;
+}
+
+.video-ready {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(34, 197, 94, 0.9);
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  z-index: 1;
+}
+
 .video-placeholder {
   border-radius: var(--radius-md);
   border: 1px dashed rgba(148, 163, 184, 0.3);
@@ -371,6 +585,9 @@
   gap: 0.75rem;
   align-items: center;
   color: var(--text-secondary);
+  width: 100%;
+  min-height: 300px;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {

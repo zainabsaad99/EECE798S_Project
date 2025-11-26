@@ -21,7 +21,7 @@
     </button>
 
     <div class="layout-with-sidebar">
-        <main class="app-main" data-content-api="{{ content_api }}">
+        <main class="app-main" data-content-api="{{ content_api }}" data-user-id="{{ user.id if user else '' }}">
             <header class="app-header">
                 <div class="app-header-content">
                     <div class="header-left">
@@ -59,7 +59,17 @@
                                     </div>
                                     <button type="button" class="btn btn-outline btn-sm" id="applyProposalBtn">Use Proposal</button>
                                 </div>
-                                <select id="proposalSelect"></select>
+                                <!-- Custom Dropdown Component -->
+                                <div class="custom-dropdown" id="proposalSelectWrapper">
+                                    <input type="hidden" id="proposalSelect" value="">
+                                    <div class="custom-dropdown-trigger" id="proposalSelectTrigger">
+                                        <span class="custom-dropdown-text">Select a proposal...</span>
+                                        <svg class="custom-dropdown-arrow" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div class="custom-dropdown-menu" id="proposalSelectMenu"></div>
+                                </div>
                                 <p class="proposal-preview" id="proposalPreview"></p>
                             </div>
 
@@ -175,6 +185,7 @@
                             <div class="spinner"></div>
                             <h3>Creating your tailored campaign...</h3>
                             <p>Agents are transforming the product proposal into platform-ready content.</p>
+                            <div class="status-messages-container" id="statusMessages"></div>
                         </div>
 
                         <div class="results-card" id="resultsCard" style="display: none;">
@@ -197,7 +208,7 @@
                                     </button>
                                 </div>
                                 <div class="result-content">
-                                    <p id="generatedText"></p>
+                                    <textarea id="generatedText" class="editable-text" rows="8" placeholder="Generated text will appear here..."></textarea>
                                     <p class="text-ready">✅ Text ready for use</p>
                                 </div>
                             </div>
@@ -220,8 +231,44 @@
                                         Download
                                     </button>
                                 </div>
-                                <div class="result-content poster-result">
-                                    <div id="posterPreview"></div>
+                                <div class="result-content">
+                                    <div class="poster-display" id="posterPreview">
+                                        <div class="poster-placeholder">
+                                            <span>Poster preview placeholder</span>
+                                        </div>
+                                        <span class="poster-ready">Ready</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="result-item" data-result="video">
+                                <div class="result-header">
+                                    <div class="result-header-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                            <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                        </svg>
+                                        <span>Generated Video</span>
+                                    </div>
+                                    <button class="btn ghost action-button" data-action="download" data-type="video" disabled>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        Download
+                                    </button>
+                                </div>
+                                <div class="result-content">
+                                    <div class="video-display" id="videoPreview">
+                                        <div class="video-placeholder">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                                <polygon points="10 15 15 12 10 9 10 15"></polygon>
+                                            </svg>
+                                            <p>Video preview unavailable</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

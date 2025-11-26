@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Chat Agent - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/linkedin_agent_chat.css') }}">
+</head>
+<body>
+    {% include 'components/sidebar.html' %}
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="chat-agent-main">
+            <div class="container">
+                <div class="agent-header">
+                    <h1 class="agent-title">LinkedIn Chat Agent</h1>
+                    <p class="agent-description">Chat naturally with the agent to create LinkedIn posts. Just type your responses and the agent will guide you through the process.</p>
+                    <div style="margin-top: 0.5rem; color: rgba(163, 163, 163, 0.8); font-size: 0.9rem;">
+                        <span>Total LinkedIn Posts Posted: <strong id="linkedinPostCount">0</strong></span>
+                    </div>
+                </div>
+
+                {% if error_message %}
+                <div class="agent-section error-state">
+                    <div class="section-header">
+                        <h2 class="section-title">Setup Required</h2>
+                        <p class="section-description">{{ error_message }}</p>
+                        <div class="form-actions">
+                            <a href="{{ url_for('account') }}" class="btn btn-primary">Go to Account Settings</a>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="chat-agent-wrapper">
+                    <section class="chat-stream-panel">
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <form id="userInputForm" class="chat-input-bar">
+                            <input type="text" id="userInput" class="chat-input" placeholder="Type your message..." autocomplete="off">
+                            <button type="submit" class="btn btn-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem;">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                                Send
+                            </button>
+                        </form>
+                    </section>
+                </div>
+                <div id="statusMessages" class="status-messages"></div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        window.ENV_CONFIG = {
+            openai_api_key: '{{ env_config.openai_api_key }}',
+            phantombuster_api_key: '{{ env_config.phantombuster_api_key }}',
+            firecrawl_api_key: '{{ env_config.firecrawl_api_key }}',
+            user_agent: '{{ env_config.user_agent }}',
+            google_sheet_url: '{{ env_config.google_sheet_url }}',
+            linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
+            user_linkedin_url: '{{ env_config.user_linkedin_url }}',
+            user_id: '{{ env_config.user_id }}'
+        };
+
+        window.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};
+    </script>
+    <script src="{{ url_for('static', filename='js/linkedin_agent_chat.js') }}"></script>
+</body>
+</html>
+

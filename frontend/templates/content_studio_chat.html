@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Studio Chat - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/content_studio_chat.css') }}">
+</head>
+<body>
+    {% include 'components/sidebar.html' %}
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="chat-agent-main" data-user-id="{{ user.id if user else '' }}">
+            <div class="container">
+                <div class="agent-header">
+                    <h1 class="agent-title">Content Studio Chat</h1>
+                    <p class="agent-description">Chat naturally with the agent to create social media content. Just type your responses and the agent will guide you through the process.</p>
+                </div>
+
+                <div class="chat-agent-wrapper">
+                    <section class="chat-stream-panel">
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <form id="userInputForm" class="chat-input-bar">
+                            <input type="text" id="userInput" class="chat-input" placeholder="Type your message..." autocomplete="off">
+                            <button type="submit" class="btn btn-primary send-button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </form>
+                    </section>
+                </div>
+                <div id="statusMessages" class="status-messages"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        window.CONTENT_API = '{{ content_api }}';
+    </script>
+    <script src="{{ url_for('static', filename='js/content_studio_chat.js') }}"></script>
+</body>
+</html>
+

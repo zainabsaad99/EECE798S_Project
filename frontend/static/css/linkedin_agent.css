@@ -86,6 +86,8 @@
   transition: border-color 0.2s;
 }
 
+/* Select elements use global enhanced styles from styles.css - no override needed */
+
 .form-input:focus {
   outline: none;
   border-color: var(--color-primary);

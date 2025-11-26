@@ -83,3 +83,14 @@ CREATE TABLE IF NOT EXISTS user_json_uploads (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_user (user_id)
 );
+CREATE TABLE IF NOT EXISTS user_activities (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    activity_type VARCHAR(50) NOT NULL,
+    activity_subtype VARCHAR(100),
+    metadata JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_activity (user_id, activity_type, created_at),
+    INDEX idx_created_at (created_at)
+);

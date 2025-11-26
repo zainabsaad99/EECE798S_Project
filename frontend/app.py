@@ -36,6 +36,9 @@ def login_required(f):
 @app.route('/')
 def index():
     user = session.get('user')
+    # If user is logged in, redirect to dashboard
+    if user:
+        return redirect(url_for('home'))
     return render_template('index.html', user=user)
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -289,9 +292,43 @@ def content_studio():
                 profile = response.json().get('user')
     except Exception as exc:
         print(f"Error fetching user profile for content studio: {exc}")
-    backend_base = BACKEND_API_URL.rstrip('/')
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
     content_api = f"{backend_base}/api/content/generate"
     return render_template('content_generation.html', user=profile or user, content_api=content_api)
+
+@app.route('/chat-interface')
+@login_required
+def chat_interface():
+    """Chat interface selection page with LinkedIn Chat and Content Chat options"""
+    user = session.get('user') or {}
+    user_id = user.get('user_id')
+    profile = None
+    try:
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                profile = response.json().get('user')
+    except Exception as exc:
+        print(f"Error fetching user profile for chat interface: {exc}")
+    return render_template('chat_interface.html', user=profile or user)
+
+@app.route('/content-studio-chat')
+@login_required
+def content_studio_chat():
+    """Chat-based content generation workspace"""
+    user = session.get('user') or {}
+    user_id = user.get('user_id')
+    profile = None
+    try:
+        if user_id:
+            response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+            if response.status_code == 200:
+                profile = response.json().get('user')
+    except Exception as exc:
+        print(f"Error fetching user profile for content studio chat: {exc}")
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
+    content_api = f"{backend_base}/api/content/generate"
+    return render_template('content_studio_chat.html', user=profile or user, content_api=content_api)
 
 @app.route('/proposal-content')
 @login_required
@@ -306,10 +343,9 @@ def proposal_content():
                 profile = response.json().get('user')
     except Exception as exc:
         print(f"Error fetching user profile for proposal content: {exc}")
-    backend_base = BACKEND_API_URL.rstrip('/')
-    content_api = f"{backend_base}/api/content/generate"
-    return render_template('proposal_content.html', user=profile or user, content_api=content_api)
-
+    backend_base = PUBLIC_BACKEND_URL.rstrip('/')
+    proposal_api = f"{backend_base}/api/proposal/generate"
+    return render_template('proposal_content.html', user=profile or user, content_api=proposal_api)
 # LinkedIn Agent page
 @app.route('/linkedin-agent')
 @login_required
@@ -391,6 +427,95 @@ def linkedin_agent():
         'user_id': user_id,  # Pass user_id to template
     }
     return render_template('linkedin_agent.html', user=user_data, env_config=env_config, user_linkedin_data=user_linkedin_data)
+
+
+@app.route('/linkedin-agent-chat')
+@login_required
+def linkedin_agent_chat():
+    """Chat-based LinkedIn content agent experience."""
+    try:
+        user = session.get('user')
+        user_id = user.get('user_id') if user else None
+
+        if not user_id:
+            return render_template(
+                'linkedin_agent_chat.html',
+                user=None,
+                env_config={},
+                user_linkedin_data=None,
+                error_message="Please sign in to access the LinkedIn Chat Agent."
+            )
+
+        user_data = None
+        user_linkedin_url = ''
+
+        response = requests.get(f'{BACKEND_API_URL}/account', json={'user_id': user_id})
+        if response.status_code == 200:
+            user_data = response.json().get('user', {})
+            user_linkedin_url = user_data.get('linkedin', '')
+
+        if not user_linkedin_url:
+            return render_template(
+                'linkedin_agent_chat.html',
+                user=user_data,
+                env_config={},
+                user_linkedin_data=None,
+                error_message="Please add your LinkedIn Profile URL in your account settings first."
+            )
+
+        user_linkedin_data = None
+        try:
+            response = requests.get(f'{BACKEND_API_URL}/api/linkedin/user-data', params={'user_id': user_id})
+            if response.status_code == 200:
+                user_linkedin_data = response.json()
+        except Exception as exc:
+            print(f"Error fetching user LinkedIn data for chat agent: {exc}")
+
+        has_data = (
+            user_linkedin_data
+            and user_linkedin_data.get('success')
+            and user_linkedin_data.get('keywords')
+            and len(user_linkedin_data.get('keywords', [])) > 0
+            and user_linkedin_data.get('tone_of_writing')
+        )
+
+        if not has_data:
+            return render_template(
+                'linkedin_agent_chat.html',
+                user=user_data,
+                env_config={},
+                user_linkedin_data=None,
+                error_message="Your LinkedIn profile is being analyzed. Please wait a few minutes and refresh the page."
+            )
+
+    except Exception as exc:
+        print(f"Error in linkedin_agent_chat route: {exc}")
+        return render_template(
+            'linkedin_agent_chat.html',
+            user=None,
+            env_config={},
+            user_linkedin_data=None,
+            error_message="An error occurred. Please try again."
+        )
+
+    default_sheet_url = 'https://docs.google.com/spreadsheets/d/10OsJwVQAboMx3LKfoZhQLRQ9w9UuekvNG1_oaZNgOMM/edit?usp=sharing'
+    env_config = {
+        'openai_api_key': os.environ.get('OPENAI_API_KEY', ''),
+        'phantombuster_api_key': os.environ.get('PHANTOMBUSTER_API_KEY', ''),
+        'firecrawl_api_key': os.environ.get('FIRECRAWL_API_KEY', ''),
+        'user_agent': os.environ.get('USER_AGENT', ''),
+        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', default_sheet_url),
+        'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
+        'user_linkedin_url': user_linkedin_url,
+        'user_id': user_id,
+    }
+
+    return render_template(
+        'linkedin_agent_chat.html',
+        user=user_data,
+        env_config=env_config,
+        user_linkedin_data=user_linkedin_data
+    )
 
 @app.route('/gap-analysis')
 @login_required

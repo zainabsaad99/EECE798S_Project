@@ -30,6 +30,9 @@ from content_agent import (
     DEFAULT_LOGO_POSITION,
     DEFAULT_LOGO_SCALE,
 )
+from proposal_agent import (
+    generate_proposal_content_and_images,
+)
 from gap_analysis import run_gap_analysis
 from trend_service import generate_trends_from_keywords
 
@@ -80,6 +83,25 @@ def get_db_connection():
         password=DB_PASSWORD
     )
     return conn
+
+
+def track_activity(user_id, activity_type, activity_subtype=None, metadata=None):
+    """Track user activity in the database"""
+    if not user_id:
+        return
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        metadata_json = json.dumps(metadata) if metadata else None
+        cursor.execute(
+            "INSERT INTO user_activities (user_id, activity_type, activity_subtype, metadata) VALUES (%s, %s, %s, %s)",
+            (user_id, activity_type, activity_subtype, metadata_json)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        app.logger.warning(f"Failed to track activity: {e}")
 
 
 def _parse_platforms(raw_value):
@@ -250,7 +272,7 @@ def signin():
                 "user_id": user['id'],
                 "email": user['email'],
                 "full_name": user['full_name'],
-                "redirect": "/account"
+                "redirect": "/home"
             }), 200
 
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
@@ -332,16 +354,18 @@ def account():
                             "linkedin_processed": True
                         }), 200
                     else:
+                        # LinkedIn URL saved successfully, but analysis will happen later when API keys are configured
                         return jsonify({
                             "success": True,
-                            "message": "Profile updated. LinkedIn URL saved, but API keys are missing. Please configure them to enable profile analysis.",
+                            "message": "Profile saved successfully! Your LinkedIn URL has been saved. Profile analysis will be performed automatically when you use the LinkedIn Agent feature.",
                             "linkedin_processed": False
                         }), 200
                 except Exception as e:
                     app.logger.error(f"Error scraping LinkedIn profile after update: {e}")
                     return jsonify({
-                        "success": False,
-                        "message": f"Profile updated, but failed to analyze LinkedIn profile: {str(e)}. Please try again later."
+                        "success": True,  # Still return success since the URL was saved
+                        "message": f"Profile saved successfully! LinkedIn URL saved. Profile analysis will be performed when you use the LinkedIn Agent.",
+                        "linkedin_processed": False
                     }), 200
             
             return jsonify({"success": True, "message": "Profile updated successfully!"}), 200
@@ -1031,6 +1055,16 @@ def linkedin_generate_post():
                 keywords=data.get('keywords', [])
             )
             
+            # Track activity
+            user_id = data.get('user_id')
+            if user_id:
+                track_activity(
+                    user_id=user_id,
+                    activity_type='content_generation',
+                    activity_subtype='linkedin_post',
+                    metadata={'topic': topic[:100] if topic else None}
+                )
+            
             return jsonify({"success": True, "post": post}), 200
         
     except Exception as e:
@@ -1134,6 +1168,31 @@ def linkedin_autopost():
             sheet_url=data['sheet_url'],
             number_of_posts_per_launch=data.get('number_of_posts_per_launch', 1)
         )
+        
+        # Track LinkedIn post activity - track if we successfully called PhantomBuster
+        # (the actual posting happens asynchronously, but we've successfully scheduled it)
+        user_id = data.get('user_id')
+        app.logger.info(f"Autopost request - user_id: {user_id}, type: {type(user_id)}")
+        
+        if user_id:
+            try:
+                # Convert user_id to int if it's a string
+                user_id_int = int(user_id) if isinstance(user_id, str) else user_id
+                track_activity(
+                    user_id=user_id_int,
+                    activity_type='linkedin_post',
+                    activity_subtype='posted',
+                    metadata={
+                        'sheet_url': data['sheet_url'],
+                        'number_of_posts': data.get('number_of_posts_per_launch', 1),
+                        'phantom_result': result
+                    }
+                )
+                app.logger.info(f"Successfully tracked LinkedIn post activity for user {user_id_int}")
+            except Exception as e:
+                app.logger.error(f"Failed to track LinkedIn post activity for user {user_id}: {e}", exc_info=True)
+        else:
+            app.logger.warning(f"No user_id provided in autopost request. Data keys: {list(data.keys())}")
         
         # Schedule sheet clearing after 10 minutes if requested
         if data.get('clear_sheet_after_post', False) and data.get('service_account_json'):
@@ -1280,6 +1339,12 @@ def api_generate_content():
 
     logo_file = request.files.get('logo_file') if request.files else None
     reference_image_file = request.files.get('reference_image') if request.files else None
+    
+    # Debug logging
+    if reference_image_file:
+        app.logger.info(f"Reference image file received in request: {reference_image_file.filename}")
+    else:
+        app.logger.info("No reference image file in request")
 
     platforms = _parse_platforms(payload.get('platforms'))
     required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
@@ -1305,9 +1370,14 @@ def api_generate_content():
     reference_image_name = None
     if reference_image_file:
         reference_image_bytes = reference_image_file.read()
+        app.logger.info(f"Reference image received: {len(reference_image_bytes)} bytes, filename: {reference_image_file.filename}")
         if len(reference_image_bytes) > MAX_REFERENCE_IMAGE_BYTES:
             return jsonify({"success": False, "message": "Reference image too large. Max 10MB."}), 400
-        reference_image_name = reference_image_file.filename or "reference.png"
+        if len(reference_image_bytes) == 0:
+            app.logger.warning("Reference image file is empty, ignoring it")
+            reference_image_bytes = None
+        else:
+            reference_image_name = reference_image_file.filename or "reference.png"
 
     proposal_context = payload.get('proposal_context')
     if isinstance(proposal_context, str):
@@ -1348,6 +1418,21 @@ def api_generate_content():
             reference_image_bytes=reference_image_bytes,
             reference_image_name=reference_image_name,
         )
+        
+        # Track activity
+        user_id = payload.get('user_id')
+        if user_id:
+            total_posts = sum(len(p.get('posts', [])) for p in plan.get('platforms', []))
+            track_activity(
+                user_id=user_id,
+                activity_type='content_generation',
+                activity_subtype='social_content',
+                metadata={
+                    'platforms': platforms,
+                    'num_posts': total_posts,
+                    'num_platforms': len(platforms)
+                }
+            )
     except ValueError as err:
         return jsonify({"success": False, "message": str(err), "supported_platforms": SUPPORTED_PLATFORMS}), 400
     except RuntimeError as err:
@@ -1357,6 +1442,169 @@ def api_generate_content():
         return jsonify({"success": False, "message": "Content generation failed."}), 500
 
     return jsonify({"success": True, "plan": plan}), 200
+
+@app.route('/api/proposal/generate', methods=['POST'])
+def api_generate_proposal_content():
+    """
+    Generate proposal-based social content + associated image data via OpenAI.
+    Similar to content generation but with proposal context and narrative.
+    Payload expects brand_summary, campaign_goal, target_audience, platforms (list),
+    proposal_narrative (optional), and proposal_context (optional).
+    """
+    try:
+        app.logger.info("=== PROPOSAL GENERATION REQUEST START ===")
+        app.logger.info(f"Content-Type: {request.content_type}")
+        
+        is_multipart = request.content_type and 'multipart/form-data' in request.content_type.lower()
+        app.logger.info(f"Is multipart: {is_multipart}")
+        
+        if is_multipart:
+            payload = request.form.to_dict()
+            app.logger.info(f"Form data keys: {list(payload.keys())}")
+        else:
+            payload = request.get_json(silent=True) or {}
+            app.logger.info(f"JSON payload keys: {list(payload.keys())}")
+        
+        app.logger.info(f"Payload: {json.dumps(payload, indent=2, default=str)}")
+
+        logo_file = request.files.get('logo_file') if request.files else None
+        reference_image_file = request.files.get('reference_image') if request.files else None
+        app.logger.info(f"Logo file: {logo_file.filename if logo_file else None}")
+        app.logger.info(f"Reference image file: {reference_image_file.filename if reference_image_file else None}")
+
+        platforms = _parse_platforms(payload.get('platforms'))
+        app.logger.info(f"Parsed platforms: {platforms}")
+        
+        required_fields = ['brand_summary', 'campaign_goal', 'target_audience']
+        missing = [field for field in required_fields if not (payload.get(field) and str(payload.get(field)).strip())]
+        if not platforms:
+            missing.append('platforms')
+
+        if missing:
+            app.logger.error(f"Missing required fields: {missing}")
+            return jsonify({"success": False, "message": f"Missing required fields: {', '.join(missing)}"}), 400
+
+        size_overrides = _parse_size_overrides(payload.get('platform_image_sizes'))
+        logo_position = (payload.get('logo_position') or DEFAULT_LOGO_POSITION).lower()
+        logo_scale = _safe_float(payload.get('logo_scale'), DEFAULT_LOGO_SCALE)
+        image_size = payload.get('image_size') or os.getenv('OPENAI_IMAGE_SIZE', '1024x1024')
+
+        logo_bytes = None
+        if logo_file:
+            logo_bytes = logo_file.read()
+            if len(logo_bytes) > MAX_LOGO_UPLOAD_BYTES:
+                return jsonify({"success": False, "message": "Logo file too large. Max 5MB."}), 400
+
+        reference_image_bytes = None
+        reference_image_name = None
+        if reference_image_file:
+            reference_image_bytes = reference_image_file.read()
+            if len(reference_image_bytes) > MAX_REFERENCE_IMAGE_BYTES:
+                return jsonify({"success": False, "message": "Reference image too large. Max 10MB."}), 400
+            if len(reference_image_bytes) == 0:
+                reference_image_bytes = None
+            else:
+                reference_image_name = reference_image_file.filename or "reference.png"
+
+        # Parse proposal context
+        proposal_context = payload.get('proposal_context')
+        app.logger.info(f"Raw proposal_context type: {type(proposal_context)}")
+        if isinstance(proposal_context, str):
+            try:
+                proposal_context = json.loads(proposal_context)
+                app.logger.info(f"Parsed proposal_context from JSON string")
+            except json.JSONDecodeError as e:
+                app.logger.warning(f"Failed to parse proposal_context JSON: {e}")
+                proposal_context = None
+        if proposal_context and not isinstance(proposal_context, dict):
+            app.logger.warning(f"proposal_context is not a dict: {type(proposal_context)}")
+            proposal_context = None
+        app.logger.info(f"Final proposal_context: {json.dumps(proposal_context, indent=2, default=str) if proposal_context else None}")
+
+        # Get proposal narrative (similar to ad_text in content studio)
+        proposal_narrative = payload.get('proposal_narrative', '').strip()
+        app.logger.info(f"proposal_narrative from payload: {proposal_narrative[:100] if proposal_narrative else None}")
+        if not proposal_narrative:
+            # Fallback to ad_text if proposal_narrative not provided
+            proposal_narrative = payload.get('ad_text', '').strip()
+            app.logger.info(f"Using ad_text as proposal_narrative: {proposal_narrative[:100] if proposal_narrative else None}")
+
+        outputs = payload.get('outputs')
+        app.logger.info(f"Raw outputs: {outputs}, type: {type(outputs)}")
+        if isinstance(outputs, str):
+            try:
+                outputs = json.loads(outputs)
+                app.logger.info(f"Parsed outputs from JSON string: {outputs}")
+            except json.JSONDecodeError as e:
+                app.logger.warning(f"Failed to parse outputs JSON: {e}")
+                outputs = []
+        if not isinstance(outputs, list):
+            app.logger.warning(f"outputs is not a list: {type(outputs)}, setting to []")
+            outputs = []
+        app.logger.info(f"Final outputs: {outputs}")
+
+        try:
+            num_posts = int(payload.get('num_posts_per_platform', 3))
+        except (TypeError, ValueError) as e:
+            app.logger.warning(f"Failed to parse num_posts_per_platform: {e}, using default 3")
+            num_posts = 3
+        app.logger.info(f"num_posts_per_platform: {num_posts}")
+
+        app.logger.info("Calling generate_proposal_content_and_images...")
+        try:
+            plan = generate_proposal_content_and_images(
+                brand_summary=payload['brand_summary'],
+                campaign_goal=payload['campaign_goal'],
+                target_audience=payload['target_audience'],
+                platforms=platforms,
+                proposal_narrative=proposal_narrative,
+                proposal_context=proposal_context,
+                num_posts_per_platform=num_posts,
+                extra_instructions=payload.get('extra_instructions', ''),
+                outputs=outputs,
+                image_size=image_size,
+                platform_image_sizes=size_overrides,
+                logo_bytes=logo_bytes,
+                logo_position=logo_position,
+                logo_scale=logo_scale,
+                reference_image_bytes=reference_image_bytes,
+                reference_image_name=reference_image_name,
+            )
+            app.logger.info("generate_proposal_content_and_images completed successfully")
+            app.logger.info(f"Plan structure: platforms={len(plan.get('platforms', []))}")
+            if plan.get('platforms'):
+                first_platform = plan['platforms'][0]
+                app.logger.info(f"First platform: {first_platform.get('name')}, posts: {len(first_platform.get('posts', []))}")
+            
+            # Track activity
+            user_id = payload.get('user_id')
+            if user_id:
+                total_posts = sum(len(p.get('posts', [])) for p in plan.get('platforms', []))
+                track_activity(
+                    user_id=user_id,
+                    activity_type='content_generation',
+                    activity_subtype='proposal_content',
+                    metadata={
+                        'platforms': platforms,
+                        'num_posts': total_posts,
+                        'num_platforms': len(platforms)
+                    }
+                )
+        except ValueError as err:
+            app.logger.error(f"ValueError in proposal generation: {str(err)}")
+            return jsonify({"success": False, "message": str(err), "supported_platforms": SUPPORTED_PLATFORMS}), 400
+        except RuntimeError as err:
+            app.logger.error(f"RuntimeError in proposal generation: {str(err)}")
+            return jsonify({"success": False, "message": str(err)}), 500
+        except Exception as err:
+            app.logger.exception("Proposal content generation failed")
+            return jsonify({"success": False, "message": f"Proposal content generation failed: {str(err)}"}), 500
+
+        app.logger.info("=== PROPOSAL GENERATION REQUEST SUCCESS ===")
+        return jsonify({"success": True, "plan": plan}), 200
+    except Exception as outer_err:
+        app.logger.exception("Unexpected error in api_generate_proposal_content")
+        return jsonify({"success": False, "message": f"Unexpected error: {str(outer_err)}"}), 500
 
 @app.route('/api/gap/keywords', methods=['GET'])
 def gap_keywords():
@@ -1533,6 +1781,20 @@ def api_gap_analysis():
             additional_context=payload.get('context', ''),
             generate_product_proposals=bool(payload.get('generate_proposals')),
         )
+        
+        # Track activity
+        user_id = payload.get('user_id')
+        if user_id:
+            track_activity(
+                user_id=user_id,
+                activity_type='gap_analysis',
+                activity_subtype='analysis_run',
+                metadata={
+                    'num_businesses': len(businesses),
+                    'num_trends': len(trends),
+                    'generate_proposals': bool(payload.get('generate_proposals'))
+                }
+            )
     except ValueError as err:
         return jsonify({"success": False, "message": str(err)}), 400
     except RuntimeError as err:
@@ -2008,6 +2270,166 @@ def get_uploaded_json(user_id):
             conn.close()
         except:
             pass
+
+# ----------------------------- DASHBOARD API -----------------------------
+@app.route('/api/dashboard/stats', methods=['GET'])
+def dashboard_stats():
+    """Get dashboard statistics for a user"""
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "message": "user_id is required"}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Get user info
+        cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+        
+        # Get LinkedIn data
+        cursor.execute(
+            "SELECT keywords, tone_of_writing, updated_at FROM user_linkedin_data WHERE user_id=%s",
+            (user_id,)
+        )
+        linkedin_data = cursor.fetchone()
+        
+        # Parse keywords
+        keywords = []
+        if linkedin_data and linkedin_data.get('keywords'):
+            try:
+                if isinstance(linkedin_data['keywords'], str):
+                    keywords = json.loads(linkedin_data['keywords'])
+                else:
+                    keywords = linkedin_data['keywords']
+            except:
+                keywords = []
+        
+        # Get activity stats
+        cursor.execute("""
+            SELECT 
+                activity_type,
+                activity_subtype,
+                COUNT(*) as count,
+                DATE(created_at) as date
+            FROM user_activities
+            WHERE user_id = %s
+            GROUP BY activity_type, activity_subtype, DATE(created_at)
+            ORDER BY date DESC
+            LIMIT 100
+        """, (user_id,))
+        activities = cursor.fetchall()
+        
+        # Calculate totals
+        cursor.execute("""
+            SELECT 
+                activity_type,
+                COUNT(*) as total_count
+            FROM user_activities
+            WHERE user_id = %s
+            GROUP BY activity_type
+        """, (user_id,))
+        activity_totals = cursor.fetchall()
+        
+        # Get LinkedIn posts count
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM user_activities
+            WHERE user_id = %s AND activity_type = 'linkedin_post' AND activity_subtype = 'posted'
+        """, (user_id,))
+        linkedin_posts_result = cursor.fetchone()
+        linkedin_posts_count = linkedin_posts_result['count'] if linkedin_posts_result else 0
+        
+        # Get proposals count
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM user_activities
+            WHERE user_id = %s AND activity_type = 'content_generation' AND activity_subtype = 'proposal_content'
+        """, (user_id,))
+        proposals_result = cursor.fetchone()
+        proposals_count = proposals_result['count'] if proposals_result else 0
+        
+        # Get platform usage from metadata
+        cursor.execute("""
+            SELECT metadata
+            FROM user_activities
+            WHERE user_id = %s 
+            AND activity_type = 'content_generation'
+            AND metadata IS NOT NULL
+        """, (user_id,))
+        content_activities = cursor.fetchall()
+        
+        # Extract platforms from metadata
+        platform_counts = {}
+        for activity in content_activities:
+            try:
+                meta = json.loads(activity['metadata']) if isinstance(activity['metadata'], str) else activity['metadata']
+                platforms = meta.get('platforms', [])
+                for platform in platforms:
+                    platform_counts[platform] = platform_counts.get(platform, 0) + 1
+            except:
+                pass
+        
+        # Get daily activity for last 7 days
+        cursor.execute("""
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as count
+            FROM user_activities
+            WHERE user_id = %s
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        """, (user_id,))
+        daily_activity = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        # Calculate profile completion
+        profile_fields = ['full_name', 'email', 'company', 'job_title', 'linkedin', 'industry', 'marketing_goals']
+        completed_fields = sum(1 for field in profile_fields if user.get(field))
+        profile_completion = int((completed_fields / len(profile_fields)) * 100)
+        
+        # Build response
+        stats = {
+            'user': {
+                'name': user.get('full_name'),
+                'email': user.get('email'),
+                'company': user.get('company'),
+                'industry': user.get('industry'),
+                'created_at': user.get('created_at').isoformat() if user.get('created_at') else None
+            },
+            'profile': {
+                'completion': profile_completion,
+                'linkedin_configured': bool(user.get('linkedin')),
+                'keywords_count': len(keywords),
+                'has_tone': bool(linkedin_data and linkedin_data.get('tone_of_writing')),
+                'linkedin_updated_at': linkedin_data.get('updated_at').isoformat() if linkedin_data and linkedin_data.get('updated_at') else None
+            },
+            'activity': {
+                'total_activities': sum(a['total_count'] for a in activity_totals),
+                'by_type': {a['activity_type']: a['total_count'] for a in activity_totals},
+                'platform_usage': platform_counts,
+                'daily_activity': [
+                    {
+                        'date': str(d['date']),
+                        'count': d['count']
+                    } for d in daily_activity
+                ],
+                'linkedin_posts_count': linkedin_posts_count,
+                'proposals_count': proposals_count
+            },
+            'keywords': keywords[:10]  # Top 10 keywords
+        }
+        
+        return jsonify({"success": True, "stats": stats}), 200
+        
+    except Exception as e:
+        app.logger.exception("Dashboard stats failed")
+        return jsonify({"success": False, "message": str(e)}), 500
 
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':
