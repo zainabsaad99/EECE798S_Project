@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - NextGen AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+</head>
+<body>
+    <!-- Include sidebar component -->
+    {% include 'components/sidebar.html' %}
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="layout-with-sidebar">
+        <main class="account-main upload-main">
+            <div class="upload-hero">
+                <div>
+                    <p class="upload-pill">Workspace Sync</p>
+                    <h1>Upload Your Product Blueprint</h1>
+                    <p class="upload-lede">Drop a company JSON profile and we’ll auto-populate your catalog, personas, and campaign context.</p>
+                    <div class="upload-stats">
+                        <div class="stat-chip">
+                            <p class="stat-label">Supported format</p>
+                            <p class="stat-value">JSON</p>
+                        </div>
+                        <div class="stat-chip">
+                            <p class="stat-label">Avg. parse time</p>
+                            <p class="stat-value">4s</p>
+                        </div>
+                        <div class="stat-chip">
+                            <p class="stat-label">Max size</p>
+                            <p class="stat-value">2MB</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="upload-hero-visual">
+                    <div class="upload-orb"></div>
+                    <div class="upload-orb delay"></div>
+                    <figure class="upload-gif-card">
+                        <img src="{{ url_for('static', filename='css/json_gif.gif') }}" alt="Human and AI collaborating at desks">
+                        <figcaption>Human + AI ops syncing your catalog</figcaption>
+                    </figure>
+                </div>
+            </div>
+
+            <div class="upload-grid">
+                <div class="upload-card">
+                    <div class="upload-card-header">
+                        <div>
+                            <h2>Company JSON Upload</h2>
+                            <p>Attach a structured JSON with businesses → products → descriptions.</p>
+                        </div>
+                        <span class="upload-hint">Need a template? <a href="{{ url_for('static', filename='samples/company_profile.json') }}" target="_blank">Download sample</a></span>
+                    </div>
+                    <form action="{{ url_for('upload_json') }}" method="POST" enctype="multipart/form-data" class="upload-form">
+                        <label for="json_file" class="upload-dropzone">
+                            <div class="upload-icon">
+                                <span>⬆</span>
+                            </div>
+                            <div>
+                                <p>Drag & drop JSON here</p>
+                                <small>or click to browse your files</small>
+                            </div>
+                        </label>
+                        <input type="file" id="json_file" name="json_file" accept=".json" required hidden>
+                        <button type="submit" class="btn btn-primary upload-btn">Upload & Extract</button>
+                        <p class="upload-footnote">We’ll extract businesses, products, pricing, and metadata to power your dashboard.</p>
+                    </form>
+                </div>
+
+                <div class="upload-card upload-card--secondary">
+                    <h3 class="upload-card-title">What happens next?</h3>
+                    <ol class="upload-timeline">
+                        <li>
+                            <div class="timeline-step">
+                                <span class="timeline-step-index">1</span>
+                                <div>
+                                    <strong>Scan & Secure</strong>
+                                    <p>We hash your file, validate the schema, and sandbox parsing to keep data safe.</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="timeline-step">
+                                <span class="timeline-step-index">2</span>
+                                <div>
+                                    <strong>AI Structuring</strong>
+                                    <p>LLMs normalize businesses, personas, SKUs, and map metadata to our workspace schema.</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="timeline-step">
+                                <span class="timeline-step-index">3</span>
+                                <div>
+                                    <strong>Catalog Sync</strong>
+                                    <p>Products, audience intel, and pricing sync with Gap Analysis & Content Studio.</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="timeline-step">
+                                <span class="timeline-step-index">4</span>
+                                <div>
+                                    <strong>Trend Activation</strong>
+                                    <p>You’ll get a prompt to launch Firecrawl trends the moment ingestion completes.</p>
+                                </div>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/account.js') }}"></script>
+</body>
+</html>

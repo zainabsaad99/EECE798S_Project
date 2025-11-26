@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from functools import wraps
+import json
 
 # Load environment variables from .env file at project root
 # Go up one level from frontend/ to project root
@@ -13,8 +14,11 @@ load_dotenv(dotenv_path=env_path)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-123-abc!@#')
-BACKEND_API_URL = os.environ.get('BACKEND_URL', 'http://backend:5000')
-PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', 'http://localhost:5000')  
+BACKEND_API_URL = 'http://backend:5000'
+Fetch_Website_API_URL = os.environ.get('FETCH_WEBSITE_URL', 'http://fetch_website:3001')
+LLM_API_URL = os.environ.get('LLM_API_URL', 'http://trend_keywords:3002')
+TRENDS_SEARCH_URL = os.environ.get('TRENDS_SEARCH_URL', 'http://trends_search:3003')
+PUBLIC_BACKEND_URL = "http://localhost:5000"
 
 def validate_email_format(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
@@ -60,6 +64,53 @@ def signin():
         return jsonify(response.json()), response.status_code
     return render_template('signin.html')
 
+
+
+@app.route('/upload-json', methods=['GET', 'POST'])
+def upload_json():
+    user = session.get('user')  # get logged-in user info from session
+    if not user:
+        return jsonify({"success": False, "message": "User not logged in."}), 401
+
+    user_id = user.get('user_id')
+
+    if request.method == 'POST':
+        if 'json_file' not in request.files:
+            return jsonify({"success": False, "message": "No file part in the request."}), 400
+
+        file = request.files['json_file']
+        if file.filename == '':
+            return jsonify({"success": False, "message": "No selected file."}), 400
+
+        if file and file.filename.endswith('.json'):
+            try:
+                json_data = json.load(file)
+                print(f"Uploaded JSON data: {json_data}", flush=True)
+
+                # --- Call save_uploaded_json API ---
+                try:
+                    response = requests.post(
+                        f"{BACKEND_API_URL}/upload-json",
+                        json={
+                            "user_id": user_id,
+                            "json_data": json_data
+                        }
+                    )
+                    response_data = response.json()
+                    status_code = response.status_code
+                except Exception as e:
+                    return jsonify({"success": False, "message": f"Error calling save API: {e}"}), 500
+
+                return render_template('account.html', user=user)
+
+            except Exception as e:
+                return jsonify({"success": False, "message": f"Error processing JSON file: {e}"}), 500
+        else:
+            return jsonify({"success": False, "message": "Invalid file type. Please upload a JSON file."}), 400
+
+    # GET method: render upload page
+    return render_template('upload_json.html', user=user)
+
 @app.route('/account', methods=['GET', 'POST'])
 @login_required
 def account():
@@ -68,17 +119,137 @@ def account():
         return jsonify({"success": False, "redirect": url_for('signin')}), 401
 
     user_id = user.get('user_id')
+    
 
     if request.method == 'POST':
+       
         data = request.get_json() if request.is_json else request.form
-        response = requests.post(f"{BACKEND_API_URL}/account", json={**data, "user_id": user_id})
-        return jsonify(response.json()), response.status_code
 
-    response = requests.get(f"{BACKEND_API_URL}/account", json={"user_id": user_id})
-    if response.status_code == 200:
-        profile = response.json().get('user')
+        # Save the basic account info first
+        try:
+            
+            response = requests.post(f"{BACKEND_API_URL}/account", json={**data, "user_id": user_id})
+            response.raise_for_status()
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Failed to update profile: {e}"}), 500
+        
+
+        # Check if user already has website data
+        try:
+            check_resp = requests.get(f"{BACKEND_API_URL}/user-has-data/{user_id}")
+            check_resp.raise_for_status()
+            has_data = check_resp.json().get("has_data", False)
+        except Exception as e:
+            print(f"Failed to check user website data: {e}", flush=True)
+            return jsonify({"success": False, "message": f"Failed to check user website data: {e}"}), 500
+         # Handle JSON upload via backend API
+       
+
+        # If no website data, fetch and save
+        if not has_data:
+            website_url = data.get("website")
+            if not website_url:
+                return jsonify({"success": False, "message": "Website URL is required for extraction."}), 400
+
+            # 1️⃣ Fetch website data from extract_website endpoint
+            try:
+                extract_resp = requests.post(f"{Fetch_Website_API_URL}/extract-website", json={"url": website_url})
+                extract_resp.raise_for_status()
+                extracted_data = extract_resp.json().get("data")
+                if not extracted_data:
+                    return jsonify({"success": False, "message": "No data extracted from website."}), 500
+            except Exception as e:
+                return jsonify({"success": False, "message": f"Website extraction failed: {e}"}), 500
+            print(f"Extracted data: {extracted_data}", flush=True)
+            # 2️⃣ Save extracted website data
+            try:
+                save_resp = requests.post(f"{BACKEND_API_URL}/save-website-data", json={
+                    "user_id": user_id,
+                    "extracted": extracted_data
+                })
+                save_resp.raise_for_status()
+                save_result = save_resp.json()
+            except Exception as e:
+                return jsonify({"success": False, "message": f"Failed to save website data: {e}"}), 500
+            print("Website data fetched and saved successfully.", flush=True)
+            print(f"Save result: {save_result}", flush=True)
+          
+            # Get user websites again after saving Without products
+            websites_data = []
+            response = requests.get(f"{BACKEND_API_URL}/get-websites/{user_id}")
+            if response.status_code == 200:
+                websites_data = response.json().get("data", [])
+                print(f"Websites data: {websites_data}", flush=True)
+            print(f"Websites to process: {websites_data}", flush=True)
+
+            # extract Keywords using LLM in batch from website contents
+            try:
+                llm_response = requests.post(f"{LLM_API_URL}/extract-phrases-batch", json={"websites": websites_data})
+                llm_response.raise_for_status()
+                llm_results = llm_response.json().get("results", [])
+            except Exception as e:
+                return jsonify({"success": False, "message": f"LLM extraction failed: {e}"}), 500
+            print(f"LLM results: {llm_results}", flush=True)
+            
+            # Update backend
+            update_results = []
+           
+            # for each result, update the trend keywords in backend
+            for result in llm_results:   
+                website_id = result.get("website_id")
+                trend_keywords = result.get("trend_keywords", [])
+                try:
+                    update_resp = requests.put(
+                        f"{BACKEND_API_URL}/update-trend-keywords/{website_id}",
+                        json={"trend_keywords": trend_keywords}
+                    )
+                    updated = update_resp.status_code == 200
+                except Exception as e:
+                    print(f"[ERROR] Updating website {website_id}: {e}", flush=True)
+                    updated = False
+
+                update_results.append({
+                    "website_id": website_id,
+                    "domain": result.get("domain"),
+                    "updated": updated,
+                    "trend_keywords": trend_keywords
+                })
+        
+
+
+        #this part not needed use to test only 
+        response = requests.get(f"{BACKEND_API_URL}/get-websites/{user_id}")
+        if response.status_code == 200:
+                wbebsites_data = response.json().get("data", [])
+        print(f"Websites to process: {wbebsites_data}", flush=True)
+        
+        # response = requests.get(f"{BACKEND_API_URL}/get-trend-keywords-by-user/{user_id}")
+        # if response.status_code == 200:
+        #         keywords = response.json().get("data", [])
+        #         print(f"keywords: {keywords}", flush=True)
+        # first_keyword = keywords[0]["trend_keywords"][0]
+        # print(first_keyword,flush=True)
+
+        # llm_response = requests.post(
+        #         f"{LLM_API_URL}/generate-trends",
+        #         json={"keywords": [first_keyword]}   # <-- SEND AS LIST WITH ONE STRING
+        #     )
+        
+        # llm_response.raise_for_status()
+
+        # trend_results = llm_response.json()
+        # print(f"[TRENDS GENERATED]: {trend_results}", flush=True)   
+        # If website data exists, no extraction needed
+        return jsonify({"success": True, "message": "Profile updated. Website data already exists."}), 200
+
+    # GET request - render profile
+    try:
+        profile_resp = requests.get(f"{BACKEND_API_URL}/account", json={"user_id": user_id})
+        profile_resp.raise_for_status()
+        profile = profile_resp.json().get("user")
         return render_template('account.html', user=profile)
-    return jsonify({"success": False, "message": "Could not load profile."}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Could not load profile: {e}"}), 400
 
 @app.route('/signout')
 def signout():
@@ -363,9 +534,12 @@ def gap_analysis():
         print(f"Error fetching user profile for gap analysis: {exc}")
     backend_base = PUBLIC_BACKEND_URL.rstrip('/')
     gap_api = f"{backend_base}/api/gap-analysis"
-    keywords_api = f"{backend_base}/api/gap/keywords"
-    business_api = f"{backend_base}/api/gap/businesses"
+    # keywords_api = f"{backend_base}/api/gap/keywords"
+    keywords_api = f"{backend_base}/get-trend-keywords-list/{user_id}"
+    
+    business_api = f"{backend_base}/get-json/{user_id}"
     trends_api = f"{backend_base}/api/gap/trends"
+    print(f"trend api {keywords_api}", flush=True)
     return render_template(
         'gap_analysis.html',
         user=profile or user,

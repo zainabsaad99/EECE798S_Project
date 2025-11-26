@@ -5,12 +5,18 @@ ENV TRANSFORMERS_CACHE=/app/model_cache
 # Set the working directory
 WORKDIR /app
 
+# Copy all files
+COPY . /app
+
 # Copy the requirements file
 COPY requirements.txt .
 
 # Install dependencies
 #RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install -r requirements.txt
+RUN pip install --upgrade pip
+RUN pip install --default-timeout=300 -r requirements.txt
+
+# RUN pip install -r requirements.txt
 
 # Copy the application code
 COPY . .

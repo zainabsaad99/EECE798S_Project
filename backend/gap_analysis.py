@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from openai import OpenAI
 
+import logging
 try:
     from linkedin_agent import fetch_trends_firecrawl as _fetch_trends_firecrawl
 except Exception:
@@ -85,8 +86,13 @@ def _get_client() -> OpenAI:
 
 def _embed(texts: List[str]) -> List[np.ndarray]:
     client = _get_client()
+    logging.debug("Embedding %d texts", len(texts))
+    for idx, sample in enumerate(texts[:5]):
+        logging.debug("[EMBED INPUT %d]: %s", idx + 1, sample)
     resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
-    return [np.array(item.embedding, dtype=np.float32) for item in resp.data]
+    vectors = [np.array(item.embedding, dtype=np.float32) for item in resp.data]
+    logging.debug("Embedding output shapes: %s", [vec.shape for vec in vectors[:5]])
+    return vectors
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
@@ -107,8 +113,9 @@ class ProductVector:
 @dataclass
 class TrendVector:
     name: str
-    description: str
-    keywords: List[str]
+    insight: str
+    evidence: str
+    impact: str
     vector: np.ndarray
 
 
@@ -170,26 +177,108 @@ def _prepare_product_vectors(businesses: List[Dict[str, Any]]) -> List[ProductVe
             rows.append((biz_name, product.get("name", "Unnamed"), product.get("description", ""), text))
             texts.append(text)
     vectors = _embed(texts) if texts else []
+    logging.debug("Product embedding input: %s", texts)
+    logging.debug("Product embedding output shapes: %s", [vec.shape for vec in vectors])
     return [
         ProductVector(business=biz, product=prod, description=desc, vector=vec)
         for (biz, prod, desc, _), vec in zip(rows, vectors)
     ]
 
 
+def _normalize_trend_record(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(raw, dict):
+        return None
+    title = (
+        raw.get("trend")
+        or raw.get("title")
+        or raw.get("core_concept")
+        or raw.get("industry")
+        or raw.get("name")
+    )
+    if not title:
+        return None
+    description_parts: List[str] = []
+    for field in ("description", "business_value"):
+        value = raw.get(field)
+        if isinstance(value, str) and value.strip():
+            description_parts.append(value.strip())
+    core_concept = raw.get("core_concept")
+    if core_concept and core_concept != title:
+        description_parts.append(str(core_concept))
+    target = raw.get("target_audience")
+    if isinstance(target, list) and target:
+        audience = ", ".join(str(item).strip() for item in target if str(item).strip())
+        if audience:
+            description_parts.append(f"Audience: {audience}")
+    elif isinstance(target, str) and target.strip():
+        description_parts.append(f"Audience: {target.strip()}")
+    domain = raw.get("domain")
+    if isinstance(domain, str) and domain.strip() and domain.lower() != "unknown":
+        description_parts.append(f"Domain: {domain.strip()}")
+    raw_keywords = []
+    for key_field in (
+        "keywords",
+        "semantic_keywords",
+        "products_services",
+        "relevant_products",
+        "relevant_products_services",
+        "relevant_products_or_services",
+    ):
+        field_value = raw.get(key_field)
+        if isinstance(field_value, list):
+            raw_keywords.extend(field_value)
+    normalized_keywords: List[str] = [
+        str(item).strip() for item in raw_keywords if str(item).strip()
+    ]
+    description = " ".join(description_parts).strip()
+    return {
+        "trend": title,
+        "description": description,
+        "keywords": normalized_keywords,
+    }
+
+
+def _flatten_trend_records(trends: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    flattened: List[Dict[str, Any]] = []
+    for raw in trends or []:
+        if isinstance(raw, dict) and isinstance(raw.get("results"), list):
+            for child in raw["results"]:
+                normalized = _normalize_trend_record(child)
+                if normalized:
+                    flattened.append(normalized)
+        else:
+            normalized = _normalize_trend_record(raw)
+            if normalized:
+                flattened.append(normalized)
+    return flattened
+
+
 def _prepare_trend_vectors(trends: List[Dict[str, Any]]) -> List[TrendVector]:
     rows, texts = [], []
-    for t in trends or []:
-        trend_name = t.get("trend") or t.get("name")
-        description = t.get("description") or ""
-        keywords = t.get("keywords") or []
-        text = " | ".join(filter(None, [trend_name, description, ", ".join(keywords)]))
+    normalized_trends = _flatten_trend_records(trends)
+    for entry in normalized_trends:
+        trend_name = entry.get("trend")
+        description = entry.get("description") or ""
+        keywords = entry.get("keywords") or []
+        text = " | ".join(
+            filter(
+                None,
+                [
+                    trend_name,
+                    description,
+                    ", ".join(keywords),
+                ],
+            )
+        )
         if not trend_name or not text:
             continue
         rows.append((trend_name, description, keywords, text))
         texts.append(text)
     vectors = _embed(texts) if texts else []
+    logging.debug("Trend embedding input: %s", texts)
+    logging.debug("Trend embedding output shapes: %s", [vec.shape for vec in vectors])
     return [
-        TrendVector(name=name, description=desc, keywords=keywords, vector=vec)
+        TrendVector(name=name, insight=desc, evidence=", ".join(keywords), impact="", vector=vec)
         for (name, desc, keywords, _), vec in zip(rows, vectors)
     ]
 
@@ -437,7 +526,6 @@ Prompting Rules
 - Working hours should reflect total cross-functional effort; price is hours * $120 blended rate unless context dictates otherwise.
 - Launch steps must be concrete actions (e.g., “Instrument churn signals for beta cohort”) not vague statements.
 - Tone: decisive, operator-focused, free of filler.
-
 Output Format
 Return a JSON array where each object contains:
 - trend (string)
@@ -575,20 +663,32 @@ def run_gap_analysis(
         best: Optional[Tuple[ProductVector, float]] = None
         for product in product_vectors:
             score = _cosine(trend.vector, product.vector)
+            logging.debug(
+                "Matrix entry: trend '%s' vs product '%s' -> %.4f",
+                trend.name,
+                product.product,
+                score,
+            )
             if best is None or score > best[1]:
                 best = (product, score)
         if best is None:
             continue
         product, score = best
+        logging.debug(
+            "Similarity score for trend '%s' vs best product '%s': %.4f",
+            trend.name,
+            product.product,
+            score,
+        )
         category = _categorize(score)
         entry = {
             "trend": trend.name,
-            "trend_summary": trend.description,
+            "trend_summary": trend.impact or trend.insight or trend.evidence,
             "best_match_product": product.product,
             "business": product.business,
             "similarity": round(score, 4),
             "category": category,
-            "keywords": trend.keywords,
+            "keywords": [],
             "product_summary": product.description,
         }
         similarity_map.append(entry)

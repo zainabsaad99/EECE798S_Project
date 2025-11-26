@@ -40,16 +40,76 @@
                             <p class="caption-title">AI sweeps the market feed and flags risks in real time.</p>
                         </div>
                     </div>
+                    <div class="hero-metrics">
+                        <div class="mini-stat">
+                            <p class="mini-label">Keywords in focus</p>
+                            <p class="mini-value" id="heroKeywordCount">0</p>
+                        </div>
+                        <div class="mini-stat">
+                            <p class="mini-label">Trends selected</p>
+                            <p class="mini-value" id="heroTrendCount">0</p>
+                        </div>
+                        <div class="mini-stat">
+                            <p class="mini-label">Open gaps</p>
+                            <p class="mini-value" id="heroGapCount">0</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="hero-panel">
                     <h3>Blueprint</h3>
-                    <ul>
-                        <li>Keywords + products auto sync from your workspace</li>
-                        <li>Firecrawl pulls live trend signals for those themes</li>
-                        <li>AI maps coverage, gaps, and next bets</li>
-                    </ul>
+                    <div class="hero-step">
+                        <div class="hero-step-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M21 12a9 9 0 0 0-9-9"/>
+                                <polyline points="21 3 21 12 12 12"/>
+                                <path d="M3 12a9 9 0 0 0 9 9"/>
+                                <polyline points="3 21 3 12 12 12"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="hero-step-title">Workspace Sync</p>
+                            <p class="hero-step-copy">Your keywords and catalog auto-load from your account.</p>
+                        </div>
+                    </div>
+                    <div class="hero-step">
+                        <div class="hero-step-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9"/>
+                                <path d="M13.5 8A3.5 3.5 0 1 0 17 11.5"/>
+                                <path d="M2 12h2"/>
+                                <path d="M20 12h2"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="hero-step-title">Trend Radar</p>
+                            <p class="hero-step-copy">Firecrawl taps live web chatter to surface hot themes.</p>
+                        </div>
+                    </div>
+                    <div class="hero-step">
+                        <div class="hero-step-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M16 7h1a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-1"/>
+                                <path d="M8 7H7a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h1"/>
+                                <path d="M12 8v8"/>
+                                <path d="M9 8h3v8"/>
+                                <path d="M12 16h3V8"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="hero-step-title">Coverage Intelligence</p>
+                            <p class="hero-step-copy">AI pinpoints gaps and drafts actionable bets.</p>
+                        </div>
+                    </div>
+                    <div class="hero-panel-cta">
+                        <span>Setup time &lt; 2 min</span>
+                        <a href="{{ url_for('account') }}" class="panel-link">Edit data sources →</a>
+                    </div>
                 </div>
             </section>
+
+            <div class="trend-marquee" aria-live="polite">
+                <div class="trend-marquee-track" id="trendMarquee"></div>
+            </div>
 
             <section class="gap-progress" aria-live="polite">
                 <div class="progress-step active" data-step="keywords">1. Focus Keywords</div>

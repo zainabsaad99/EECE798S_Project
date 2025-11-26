@@ -1,6 +1,4 @@
-
 services:
-  # Frontend Service
   frontend:
     build:
       context: ./frontend
@@ -11,15 +9,19 @@ services:
     env_file:
       - ./.env
     environment:
-      - FLASK_ENV=development
-      - BACKEND_URL=http://backend:5000
-      - PUBLIC_BACKEND_URL=http://localhost:5000
+      FLASK_ENV: development
+      BACKEND_URL: http://backend:5000
+      FETCH_WEBSITE_URL: http://fetch_website:3001
+      LLM_API_URL: http://trend_keywords:3002
+      PUBLIC_LLM_API_URL: http://localhost:3002  # Example public LLM API URL
+      PUBLIC_BACKEND_URL: http://localhost:5000
+      
     depends_on:
       - backend
     networks:
       - app-network
+    restart: unless-stopped
 
-  # Backend (Flask API)
   backend:
     build:
       context: ./backend
@@ -28,28 +30,28 @@ services:
     env_file:
       - ./.env
     environment:
-      - FLASK_ENV=development
-      - PUBLIC_BACKEND_URL=http://localhost:5000
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_NAME=NextGenAI
-      - DB_USER=root
-      - DB_PASSWORD=password
+      FLASK_ENV: development
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: NextGenAI
+      DB_USER: root
+      DB_PASSWORD: password
     ports:
       - "5000:5000"
     volumes:
-      # Mount the service account JSON file from project root
       - ./linkedin-agent-478216-f37f2b2ce601.json:/app/linkedin-agent-478216-f37f2b2ce601.json:ro
     depends_on:
       - db
     networks:
       - app-network
+    restart: unless-stopped
 
-  # MySQL Database
   db:
     image: mysql:8.0
     container_name: mysql-db
     restart: always
+    env_file:
+      - ./.env
     environment:
       MYSQL_DATABASE: NextGenAI
       MYSQL_ROOT_PASSWORD: password
@@ -60,6 +62,41 @@ services:
       - ./mysql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     networks:
       - app-network
+
+  fetch_website:
+    build:
+      context: ./Fetch_Website
+      dockerfile: Dockerfile
+    container_name: fetch-website
+    command: python fetch.py
+    env_file:
+      - ./.env
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  trend_keywords:
+    build:
+      context: ./trend_keywords
+      dockerfile: Dockerfile
+    container_name: trend-keywords
+    command: python trends_keyword.py
+    env_file:
+      - ./.env
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+    networks:
+      - app-network
+    restart: unless-stopped
 
 networks:
   app-network:
