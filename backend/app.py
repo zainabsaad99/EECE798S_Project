@@ -315,7 +315,8 @@ def account():
 
             # Check if LinkedIn URL is being updated
             linkedin_updated = False
-            new_linkedin_url = update_fields.get('linkedin', '').strip()
+            # Safely handle None for linkedin - use 'or' to convert None to empty string
+            new_linkedin_url = (update_fields.get('linkedin') or '').strip()
             if new_linkedin_url:
                 # Get current LinkedIn URL to compare
                 cursor.execute("SELECT linkedin FROM users WHERE id=%s", (user_id,))

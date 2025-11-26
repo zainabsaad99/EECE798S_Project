@@ -79,9 +79,11 @@
                                 <input type="text" id="company" name="company" class="form-input" value="{{ user.company or '' }}" placeholder="Acme Inc.">
                             </div>
 
+                            <!-- Website Section -->
                             <div class="form-group">
                                 <label for="website" class="form-label">Website</label>
                                 <input type="url" id="website" name="website" class="form-input" value="{{ user.website or '' }}" placeholder="https://example.com">
+                                <button type="button" id="saveWebsiteBtn" class="btn btn-primary" style="margin-top: 0.5rem;">Save Website</button>
                             </div>
 
                             <!-- LinkedIn field - Required for LinkedIn Agent -->
@@ -93,8 +95,10 @@
                                 <p class="form-hint" style="margin-top: 0.5rem; color: #6b7280;">
                                     Required to use the LinkedIn Agent. We'll analyze your profile to extract your interests and writing style.
                                 </p>
+                                <button type="button" id="saveLinkedInBtn" class="btn btn-primary" style="margin-top: 0.5rem;">Save LinkedIn</button>
                             </div>
 
+                            <!-- Industry and Company Size Section -->
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="industry" class="form-label">Industry</label>
@@ -122,11 +126,9 @@
                                     </select>
                                 </div>
                             </div>
-
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <button type="button" id="saveIndustryBtn" class="btn btn-primary">Save Industry & Company Size</button>
                         </form>
                     </div>
-        
 
                     <!-- Marketing Goals -->
                     <div class="account-card account-card-full">
@@ -183,6 +185,7 @@
         </main>
     </div>
 
+    <script src="{{ url_for('static', filename='js/custom-dropdown.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
     <script src="{{ url_for('static', filename='js/account.js') }}"></script>
 </body>

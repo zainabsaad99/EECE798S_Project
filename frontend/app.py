@@ -98,10 +98,15 @@ def upload_json():
                     )
                     response_data = response.json()
                     status_code = response.status_code
+                    
+                    # Check if the upload was successful
+                    if status_code == 201 and response_data.get("success"):
+                        # Redirect to gap analysis page after successful upload
+                        return redirect(url_for('gap_analysis'))
+                    else:
+                        return jsonify({"success": False, "message": response_data.get("message", "Failed to save JSON data")}), status_code
                 except Exception as e:
                     return jsonify({"success": False, "message": f"Error calling save API: {e}"}), 500
-
-                return render_template('account.html', user=user)
 
             except Exception as e:
                 return jsonify({"success": False, "message": f"Error processing JSON file: {e}"}), 500
@@ -128,7 +133,7 @@ def account():
         # Save the basic account info first
         try:
             
-            response = requests.post(f"{BACKEND_API_URL}/account", json={**data, "user_id": user_id})
+            response = requests.post(f"{PUBLIC_BACKEND_URL}/account", json={**data, "user_id": user_id})
             response.raise_for_status()
         except Exception as e:
             return jsonify({"success": False, "message": f"Failed to update profile: {e}"}), 500
