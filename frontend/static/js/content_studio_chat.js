@@ -408,6 +408,13 @@ async function handleGenerate() {
             extra_instructions: `Tone: ${chatState.tone}. Base ad text: ${chatState.adText || 'None provided'}`
         };
         
+        // Add user_id for tracking if available
+        const mainEl = document.querySelector('.app-main');
+        const userId = mainEl?.dataset?.userId || window.ENV_CONFIG?.user_id || '';
+        if (userId) {
+            payload.user_id = userId;
+        }
+        
         // Debug: Log payload to help diagnose issues
         console.log('Sending payload:', {
             ...payload,

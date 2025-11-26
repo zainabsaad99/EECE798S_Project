@@ -1,4 +1,34 @@
 // ------------------
+// STATUS MESSAGE HANDLER
+// ------------------
+function showStatus(message, type = 'info') {
+  const statusMessages = document.getElementById('statusMessages');
+  if (!statusMessages) return;
+  
+  // Clear existing messages
+  statusMessages.innerHTML = '';
+  
+  const messageEl = document.createElement('div');
+  messageEl.className = `status-message status-${type}`;
+  messageEl.textContent = message;
+  
+  statusMessages.appendChild(messageEl);
+  
+  // Auto-remove success messages after 3 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      messageEl.style.opacity = '0';
+      messageEl.style.transform = 'translateY(-5px)';
+      setTimeout(() => {
+        if (messageEl.parentNode) {
+          messageEl.parentNode.removeChild(messageEl);
+        }
+      }, 300);
+    }, 3000);
+  }
+}
+
+// ------------------
 // SIGN IN HANDLER
 // ------------------
 const signinForm = document.getElementById("signinForm");
@@ -24,13 +54,16 @@ if (signinForm) {
       const result = await response.json();
 
       if (result.success) {
-        window.location.href = result.redirect || "/account";
+        showStatus("Sign in successful! Redirecting...", "success");
+        setTimeout(() => {
+          window.location.href = result.redirect || "/home";
+        }, 500);
       } else {
-        alert(result.message || "Sign in failed. Please try again.");
+        showStatus(result.message || "Sign in failed. Please try again.", "error");
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("An error occurred. Please try again.");
+      showStatus("An error occurred. Please try again.", "error");
     }
   });
 }
@@ -48,7 +81,7 @@ if (signupForm) {
     const confirmPassword = formData.get("confirm_password");
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      showStatus("Passwords do not match", "error");
       return;
     }
 
@@ -69,13 +102,16 @@ if (signupForm) {
       const result = await response.json();
 
       if (result.success) {
-        window.location.href = result.redirect || "/signin";
+        showStatus("Account created successfully! Redirecting to sign in...", "success");
+        setTimeout(() => {
+          window.location.href = result.redirect || "/signin";
+        }, 1500);
       } else {
-        alert(result.message || "Sign up failed. Please try again.");
+        showStatus(result.message || "Sign up failed. Please try again.", "error");
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("An error occurred. Please try again.");
+      showStatus("An error occurred. Please try again.", "error");
     }
   });
 }

@@ -20,7 +20,7 @@
     </button>
 
     <div class="layout-with-sidebar">
-        <main class="chat-agent-main">
+        <main class="chat-agent-main" data-user-id="{{ user.id if user else '' }}">
             <div class="container">
                 <div class="agent-header">
                     <h1 class="agent-title">Content Studio Chat</h1>

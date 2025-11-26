@@ -27,6 +27,9 @@
                 <div class="agent-header">
                     <h1 class="agent-title">LinkedIn Content Agent</h1>
                     <p class="agent-description">Generate LinkedIn posts using AI-powered content creation</p>
+                    <div style="margin-top: 0.5rem; color: rgba(163, 163, 163, 0.8); font-size: 0.9rem;">
+                        <span>Total LinkedIn Posts Posted: <strong id="linkedinPostCount">0</strong></span>
+                    </div>
                 </div>
 
                 {% if error_message %}
@@ -226,10 +229,10 @@
                             </label>
                             <input type="password" id="autopost_session_cookie" name="autopost_session_cookie" 
                                    class="form-input" 
-                                   placeholder="Enter your LinkedIn session cookie (or reuse from scraping)">
+                                   placeholder="Enter your LinkedIn session cookie (required)">
                             <small class="form-hint">
                                 How to get: F12 → Application → Cookies → linkedin.com → Copy "li_at" value.
-                                <br>Note: If you already entered this when running the agent, you can reuse it or enter a new one.
+                                <br>Note: This cookie is required for autoposting and is not stored in the system.
                             </small>
                         </div>
 
@@ -254,14 +257,13 @@
     <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
     <script>
         // Pass API keys from backend to frontend (hidden from user)
-        // Note: LinkedIn session cookie is NOT included - user enters it when autoposting
+        // Note: LinkedIn session cookie is NOT included - user must enter it when autoposting
         window.ENV_CONFIG = {
             openai_api_key: '{{ env_config.openai_api_key }}',
             phantombuster_api_key: '{{ env_config.phantombuster_api_key }}',
             firecrawl_api_key: '{{ env_config.firecrawl_api_key }}',
             user_agent: '{{ env_config.user_agent }}',
             google_sheet_url: '{{ env_config.google_sheet_url }}',
-            linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
             user_linkedin_url: '{{ env_config.user_linkedin_url }}',
             user_id: '{{ env_config.user_id }}'
         };

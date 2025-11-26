@@ -163,43 +163,8 @@
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
-/* Enhanced Select/Dropdown Styling */
-.form-group select {
-  width: 100%;
-  border: 1.5px solid rgba(148, 163, 184, 0.25);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 2.75rem 0.75rem 0.85rem;
-  font-family: inherit;
-  font-size: 0.95rem;
-  background: rgba(15, 23, 42, 0.75);
-  color: var(--text-primary);
-  transition: all 0.25s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.85rem center;
-  background-size: 1rem;
-  cursor: pointer;
-}
-
-.form-group select:hover {
-  border-color: rgba(139, 92, 246, 0.4);
-  background-color: rgba(15, 23, 42, 0.85);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-}
-
-.form-group select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-}
-
-.form-group select option {
-  background: var(--panel);
-  color: var(--text-primary);
-  padding: 0.5rem;
-}
+/* Enhanced Select/Dropdown Styling - Now uses global styles from styles.css */
+/* All select styling is handled globally in styles.css for consistency */
 
 /* Enhanced File Upload Button Styling */
 .form-group input[type="file"] {

@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     hydrateFromUserData();
     bindEventListeners();
     await loadDefaultServiceAccount();
+    loadLinkedInPostCount();
     initChat();
 });
 
@@ -644,6 +645,26 @@ function processCookieResponse(message) {
     }
 }
 
+async function loadLinkedInPostCount() {
+    if (!chatState.userId) return;
+    
+    try {
+        const BACKEND_URL = window.location.protocol + '//' + window.location.hostname + ':5000';
+        const response = await fetch(`${BACKEND_URL}/api/dashboard/stats?user_id=${chatState.userId}`);
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+            const count = data.stats.activity?.linkedin_posts_count || 0;
+            const countElement = document.getElementById('linkedinPostCount');
+            if (countElement) {
+                countElement.textContent = count;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading LinkedIn post count:', error);
+    }
+}
+
 async function handleSaveAndPost(saveToSheet, autopost, userMessage, skipCookieCheck = false) {
     if (!chatState.postContent) {
         addAgentMessage('I need a post to save. Please generate one first.');
@@ -700,7 +721,8 @@ async function handleSaveAndPost(saveToSheet, autopost, userMessage, skipCookieC
                 session_cookie: chatState.sessionCookie,
                 user_agent: chatState.userAgent,
                 sheet_url: chatState.sheetUrl,
-                clear_sheet_after_post: false
+                clear_sheet_after_post: false,
+                user_id: chatState.userId  // Add user_id for tracking
             };
             
             const autopostResponse = await fetch(`${BACKEND_URL}/api/linkedin/autopost`, {
@@ -712,6 +734,8 @@ async function handleSaveAndPost(saveToSheet, autopost, userMessage, skipCookieC
             const autopostResult = await autopostResponse.json();
             if (autopostResult.success) {
                 addAgentMessage('✓ Post scheduled via PhantomBuster! It will be posted within 3 minutes.');
+                // Update post count after successful post
+                await loadLinkedInPostCount();
             } else {
                 addAgentMessage(`✗ Autopost failed: ${autopostResult.message}`);
             }

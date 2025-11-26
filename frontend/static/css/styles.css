@@ -101,6 +101,139 @@ body::-webkit-scrollbar-thumb:hover {
   background: rgba(139, 92, 246, 0.6);
 }
 
+/* ============================================
+   Enhanced Dropdown/Select Styling - Global
+   ============================================ */
+select,
+.form-input[type="select"],
+select.form-input,
+.form-group select,
+#proposalSelect,
+#trendSelect,
+#toneSelect,
+#platformSelect,
+#logoPosition,
+#industry,
+#company_size {
+  width: 100% !important;
+  padding: 1rem 3.5rem 1rem 1.25rem !important;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%) !important;
+  border: 2px solid rgba(148, 163, 184, 0.3) !important;
+  border-radius: 12px !important;
+  color: var(--color-foreground) !important;
+  font-family: inherit !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  cursor: pointer !important;
+  position: relative !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 1.25rem center !important;
+  background-size: 1.25rem !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+select:hover,
+.form-input[type="select"]:hover,
+select.form-input:hover,
+.form-group select:hover,
+#proposalSelect:hover,
+#trendSelect:hover,
+#toneSelect:hover,
+#platformSelect:hover,
+#logoPosition:hover,
+#industry:hover,
+#company_size:hover {
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 1.25rem center !important;
+  background-size: 1.25rem !important;
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  transform: translateY(-2px) !important;
+}
+
+select:focus,
+.form-input[type="select"]:focus,
+select.form-input:focus,
+.form-group select:focus,
+#proposalSelect:focus,
+#trendSelect:focus,
+#toneSelect:focus,
+#platformSelect:focus,
+#logoPosition:focus,
+#industry:focus,
+#company_size:focus {
+  outline: none !important;
+  border-color: var(--color-primary) !important;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 1.25rem center !important;
+  background-size: 1.25rem !important;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.3), 0 8px 24px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+select:active,
+.form-input[type="select"]:active,
+select.form-input:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
+}
+
+select option,
+.form-input[type="select"] option,
+select.form-input option,
+.form-group select option,
+#trendSelect option,
+#toneSelect option,
+#platformSelect option,
+#logoPosition option,
+#industry option,
+#company_size option {
+  background: rgba(15, 23, 42, 0.98) !important;
+  color: var(--color-foreground) !important;
+  padding: 1rem 1.25rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  border: none !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  line-height: 1.6 !important;
+  min-height: 2.5rem !important;
+  width: auto !important;
+  max-width: none !important;
+  word-spacing: normal !important;
+  hyphens: auto !important;
+}
+
+/* Proposal select options handled separately in proposal_content.css */
+
+select option:hover,
+select option:focus {
+  background: rgba(139, 92, 246, 0.45) !important;
+  color: #ffffff !important;
+  outline: none !important;
+  border: none !important;
+}
+
+select option:checked {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.5) 0%, rgba(139, 92, 246, 0.3) 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Removed - handled by proposal_content.css with higher specificity */
+
 .container {
   max-width: var(--container-max-width);
   margin: 0 auto;

@@ -8,7 +8,7 @@ let agentState = {
     openai_key: window.ENV_CONFIG?.openai_api_key || '',
     phantom_key: window.ENV_CONFIG?.phantombuster_api_key || '',
     firecrawl_key: window.ENV_CONFIG?.firecrawl_api_key || '',
-    session_cookie: window.ENV_CONFIG?.linkedin_session_cookie || '',  // From .env
+    session_cookie: '',  // Always ask user for cookie instead of using env variable
     user_agent: window.ENV_CONFIG?.user_agent || '',
     sheet_url: window.ENV_CONFIG?.google_sheet_url || '',  // From .env
     user_linkedin_url: window.ENV_CONFIG?.user_linkedin_url || '',  // From user profile
@@ -113,6 +113,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             agentState.current_post = this.value;
         });
     }
+    
+    // Load LinkedIn post count
+    loadLinkedInPostCount();
 });
 
 // Format keywords and tone displayed on page load
@@ -133,12 +136,13 @@ function formatPageContent() {
 
 function initializeFromForm() {
     // Validate that required API keys are present (from .env)
+    // Note: LINKEDIN_SESSION_COOKIE is not checked here - it's only required when posting
     const missingKeys = [];
     if (!agentState.openai_key) missingKeys.push('OPENAI_API_KEY');
     if (!agentState.phantom_key) missingKeys.push('PHANTOMBUSTER_API_KEY');
     if (!agentState.firecrawl_key) missingKeys.push('FIRECRAWL_API_KEY');
     if (!agentState.user_agent) missingKeys.push('USER_AGENT');
-    if (!agentState.session_cookie) missingKeys.push('LINKEDIN_SESSION_COOKIE');
+    // Removed LINKEDIN_SESSION_COOKIE check - only needed when posting
     if (!agentState.user_linkedin_url) missingKeys.push('User LinkedIn URL (set in account profile)');
     
     if (missingKeys.length > 0) {
@@ -448,9 +452,33 @@ function displayTrends() {
         ).join('');
         trendsDisplay.innerHTML = trendsHTML;
         
+        // Helper function to format text with word wrapping (max 8 words per visual line)
+        const formatOptionText = (text) => {
+            const words = text.split(/\s+/);
+            const maxWordsPerLine = 8;
+            const formattedWords = [];
+            
+            // Add words with zero-width space after every 8 words to encourage wrapping
+            for (let i = 0; i < words.length; i++) {
+                formattedWords.push(words[i]);
+                // Insert zero-width space after every 8 words (except the last word)
+                if ((i + 1) % maxWordsPerLine === 0 && i < words.length - 1) {
+                    // Add zero-width space and a regular space to encourage wrapping
+                    formattedWords.push('\u200B '); // Zero-width space + regular space
+                } else if (i < words.length - 1) {
+                    formattedWords.push(' '); // Regular space between words
+                }
+            }
+            
+            return formattedWords.join('');
+        };
+        
         // Populate dropdown
         trendSelect.innerHTML = '<option value="">-- Select a trend --</option>' +
-            agentState.trends.map(t => `<option value="${t.title}">${t.title}</option>`).join('');
+            agentState.trends.map(t => {
+                const formattedTitle = formatOptionText(t.title);
+                return `<option value="${t.title}" title="${t.title}">${formattedTitle}</option>`;
+            }).join('');
     } else {
         trendsDisplay.textContent = 'No trends found';
     }
@@ -861,6 +889,25 @@ function handleCopyPost() {
     });
 }
 
+async function loadLinkedInPostCount() {
+    if (!agentState.user_id) return;
+    
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/dashboard/stats?user_id=${agentState.user_id}`);
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+            const count = data.stats.activity?.linkedin_posts_count || 0;
+            const countElement = document.getElementById('linkedinPostCount');
+            if (countElement) {
+                countElement.textContent = count;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading LinkedIn post count:', error);
+    }
+}
+
 async function handleSaveAndPost() {
     if (!agentState.current_post) {
         showStatus('No post to save. Please generate a post first.', 'error');
@@ -891,19 +938,18 @@ async function handleSaveAndPost() {
         return;
     }
     
-    // Get session cookie from form if autoposting
+    // Get session cookie from form if autoposting - always require user input
     if (autopost) {
         const sessionCookieInput = document.getElementById('autopost_session_cookie');
         const sessionCookieFromForm = sessionCookieInput ? sessionCookieInput.value.trim() : '';
         
-        // Use form input if provided, otherwise reuse from run agent step
+        // Always require form input - never use .env
         if (sessionCookieFromForm) {
             agentState.session_cookie = sessionCookieFromForm;
-        } else if (!agentState.session_cookie) {
-            showStatus('LinkedIn session cookie is required for autopost. Please set LINKEDIN_SESSION_COOKIE in .env file.', 'error');
+        } else {
+            showStatus('LinkedIn session cookie is required for autopost. Please enter it in the form field above.', 'error');
             return;
         }
-        // If agentState.session_cookie exists from run agent, reuse it
     }
     
     setButtonLoading(saveAndPostBtn, true);
@@ -956,7 +1002,8 @@ async function handleSaveAndPost() {
                 session_cookie: agentState.session_cookie,
                 user_agent: agentState.user_agent,
                 sheet_url: agentState.sheet_url,
-                clear_sheet_after_post: clearSheetAfterPost
+                clear_sheet_after_post: clearSheetAfterPost,
+                user_id: agentState.user_id  // Add user_id for tracking
             };
             
             // Include service account JSON if clearing sheet
@@ -975,6 +1022,8 @@ async function handleSaveAndPost() {
             const autopostResult = await autopostResponse.json();
             if (autopostResult.success) {
                 saveResults.innerHTML += `<div class="result-message success">post will be posted within 3 minutes</div>`;
+                // Update post count after successful post
+                await loadLinkedInPostCount();
             } else {
                 saveResults.innerHTML += `<div class="result-message error">Autopost failed: ${autopostResult.message}</div>`;
             }

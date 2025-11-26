@@ -41,8 +41,8 @@ from PIL import Image
 PHANTOM_LAUNCH_URL = "https://api.phantombuster.com/api/v2/agents/launch"
 PHANTOM_FETCH_OUTPUT_URL = "https://api.phantombuster.com/api/v2/containers/fetch-output"
 
-SCRAPE_AGENT_ID = "6779421181804593"  # LinkedIn Activities Scraper
-POST_AGENT_ID = "5247540140692981"    # LinkedIn Auto Poster
+SCRAPE_AGENT_ID = "157605755168271"  # LinkedIn Activities Scraper
+POST_AGENT_ID = "4269915876888936"    # LinkedIn Auto Poster
 
 DEFAULT_POLL_SECONDS = 5
 DEFAULT_MAX_WAIT_SECONDS = 180
