@@ -1,0 +1,117 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - deployment
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  AZURE_RESOURCE_GROUP: eece798
+  AZURE_LOCATION: eastus
+  ACR_NAME: alinehassan2000
+  CONTAINER_ENV: alinehassan2000-env
+  BACKEND_APP: backend-app
+  FRONTEND_APP: frontend-app
+  FETCH_WEBSITE_APP: fetch-website-app
+  TREND_KEYWORDS_APP: trend-keywords-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.ACR_NAME }}
+
+    - name: Build and push Frontend image
+      run: |
+        cd frontend
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }} .
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/frontend:latest .
+        docker push ${{ env.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }}
+        docker push ${{ env.ACR_NAME }}.azurecr.io/frontend:latest
+
+    - name: Build and push Backend image
+      run: |
+        cd backend
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/backend:${{ github.sha }} .
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/backend:latest .
+        docker push ${{ env.ACR_NAME }}.azurecr.io/backend:${{ github.sha }}
+        docker push ${{ env.ACR_NAME }}.azurecr.io/backend:latest
+
+    - name: Build and push Fetch-Website image
+      run: |
+        cd fetch-website
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/fetch-website:${{ github.sha }} .
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/fetch-website:latest .
+        docker push ${{ env.ACR_NAME }}.azurecr.io/fetch-website:${{ github.sha }}
+        docker push ${{ env.ACR_NAME }}.azurecr.io/fetch-website:latest
+
+    - name: Build and push Trend-Keywords image
+      run: |
+        cd trend-keywords
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/trend-keywords:${{ github.sha }} .
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/trend-keywords:latest .
+        docker push ${{ env.ACR_NAME }}.azurecr.io/trend-keywords:${{ github.sha }}
+        docker push ${{ env.ACR_NAME }}.azurecr.io/trend-keywords:latest
+
+    - name: Get Backend URL
+      id: backend-url
+      run: |
+        BACKEND_URL=$(az containerapp show --name ${{ env.BACKEND_APP }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+        echo "url=$BACKEND_URL" >> $GITHUB_OUTPUT
+
+    - name: Get Trend Keywords URL
+      id: trend-url
+      run: |
+        TREND_URL=$(az containerapp show --name ${{ env.TREND_KEYWORDS_APP }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+        echo "url=$TREND_URL" >> $GITHUB_OUTPUT
+
+    - name: Update Frontend Container App
+      run: |
+        az containerapp update \
+          --name ${{ env.FRONTEND_APP }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --image ${{ env.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }}
+
+    - name: Update Backend Container App
+      run: |
+        az containerapp update \
+          --name ${{ env.BACKEND_APP }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --image ${{ env.ACR_NAME }}.azurecr.io/backend:${{ github.sha }}
+
+    - name: Update Fetch-Website Container App
+      run: |
+        az containerapp update \
+          --name ${{ env.FETCH_WEBSITE_APP }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --image ${{ env.ACR_NAME }}.azurecr.io/fetch-website:${{ github.sha }}
+
+    - name: Update Trend-Keywords Container App
+      run: |
+        az containerapp update \
+          --name ${{ env.TREND_KEYWORDS_APP }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --image ${{ env.ACR_NAME }}.azurecr.io/trend-keywords:${{ github.sha }}
+
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Frontend:** Updated to commit ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Backend:** Updated to commit ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Fetch-Website:** Updated to commit ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Trend-Keywords:** Updated to commit ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "All services have been deployed successfully!" >> $GITHUB_STEP_SUMMARY

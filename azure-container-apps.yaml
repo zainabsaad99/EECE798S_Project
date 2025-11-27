@@ -1,0 +1,98 @@
+# Azure Container Apps Configuration
+# This file can be used as a reference for creating container apps via Azure CLI or Portal
+
+# Resource Group and Environment
+resourceGroup: "your-resource-group"
+location: "eastus"
+containerAppEnvironment: "your-env-name"
+acrName: "yourregistryname"
+
+# Backend Container App Configuration
+backend:
+  name: "backend-app"
+  image: "${acrName}.azurecr.io/backend:latest"
+  targetPort: 5000
+  ingress: "external"  # external for public access
+  environmentVariables:
+    - name: "FLASK_ENV"
+      value: "production"
+    - name: "DB_HOST"
+      value: "eece798.mysql.database.azure.com"
+    - name: "DB_PORT"
+      value: "3306"
+    - name: "DB_NAME"
+      value: "nextgenai"
+    - name: "DB_USER"
+      value: "aline"
+    - name: "DB_PASSWORD"
+      value: "Jaz-agent"  # Store as secret in production
+  secrets:
+    - name: "openai-api-key"
+      value: ""  # Set via Azure CLI
+    - name: "firecrawl-api-key"
+      value: ""  # Set via Azure CLI
+  cpu: "0.5"
+  memory: "1.0Gi"
+  minReplicas: 1
+  maxReplicas: 3
+
+# Frontend Container App Configuration
+frontend:
+  name: "frontend-app"
+  image: "${acrName}.azurecr.io/frontend:latest"
+  targetPort: 3000
+  ingress: "external"  # external for public access
+  environmentVariables:
+    - name: "FLASK_ENV"
+      value: "production"
+    - name: "BACKEND_URL"
+      value: "http://backend-app"  # Internal service name
+    - name: "PUBLIC_BACKEND_URL"
+      value: ""  # Will be set after backend is created
+    - name: "FETCH_WEBSITE_URL"
+      value: "http://fetch-website-app"
+    - name: "LLM_API_URL"
+      value: "http://trend-keywords-app"
+    - name: "PUBLIC_LLM_API_URL"
+      value: ""  # Will be set after trend-keywords is created
+  cpu: "0.5"
+  memory: "0.5Gi"
+  minReplicas: 1
+  maxReplicas: 3
+
+# Fetch Website Container App Configuration
+fetchWebsite:
+  name: "fetch-website-app"
+  image: "${acrName}.azurecr.io/fetch-website:latest"
+  targetPort: 3001
+  ingress: "internal"  # internal for container-to-container only
+  environmentVariables:
+    - name: "PORT"
+      value: "3001"
+  secrets:
+    - name: "firecrawl-api-key"
+      value: ""  # Set via Azure CLI
+  cpu: "0.25"
+  memory: "0.5Gi"
+  minReplicas: 1
+  maxReplicas: 2
+
+# Trend Keywords Container App Configuration
+trendKeywords:
+  name: "trend-keywords-app"
+  image: "${acrName}.azurecr.io/trend-keywords:latest"
+  targetPort: 3002
+  ingress: "internal"  # internal for container-to-container only
+  environmentVariables:
+    - name: "PORT"
+      value: "3002"
+  secrets:
+    - name: "openai-api-key"
+      value: ""  # Set via Azure CLI
+    - name: "firecrawl-api-key"
+      value: ""  # Set via Azure CLI
+  cpu: "0.5"
+  memory: "1.0Gi"
+  minReplicas: 1
+  maxReplicas: 2
+

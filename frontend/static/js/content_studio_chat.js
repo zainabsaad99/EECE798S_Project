@@ -1,4 +1,4 @@
-const BACKEND_URL = window.location.protocol + '//' + window.location.hostname + ':5000';
+const BACKEND_URL = window.ENV_CONFIG?.backend_url || (window.location.protocol + '//' + window.location.hostname + ':5000');
 const CONTENT_API = window.CONTENT_API || `${BACKEND_URL}/api/content/generate`;
 
 const chatState = {

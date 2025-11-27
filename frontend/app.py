@@ -2,10 +2,15 @@ from flask import Flask, render_template, request, jsonify, session, url_for, re
 import requests
 import re
 import os
+import logging
 from dotenv import load_dotenv
 from pathlib import Path
 from functools import wraps
 import json
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file at project root
 # Go up one level from frontend/ to project root
@@ -14,11 +19,19 @@ load_dotenv(dotenv_path=env_path)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-123-abc!@#')
-BACKEND_API_URL = 'http://backend:5000'
+# Backend URL for server-side requests - MUST be set via PUBLIC_BACKEND_URL environment variable
+BACKEND_API_URL = os.environ.get('PUBLIC_BACKEND_URL')
+if not BACKEND_API_URL:
+    raise ValueError("PUBLIC_BACKEND_URL environment variable is required but not set!")
+
+logger.info(f"🔵 [CONFIG] BACKEND_API_URL: {BACKEND_API_URL}")
 Fetch_Website_API_URL = os.environ.get('FETCH_WEBSITE_URL', 'http://fetch_website:3001')
 LLM_API_URL = os.environ.get('LLM_API_URL', 'http://trend_keywords:3002')
 TRENDS_SEARCH_URL = os.environ.get('TRENDS_SEARCH_URL', 'http://trends_search:3003')
-PUBLIC_BACKEND_URL = "http://localhost:5000"
+# PUBLIC_BACKEND_URL for client-side JavaScript (same as BACKEND_API_URL)
+PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL')
+if not PUBLIC_BACKEND_URL:
+    raise ValueError("PUBLIC_BACKEND_URL environment variable is required but not set!")
 
 def validate_email_format(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
@@ -44,9 +57,78 @@ def index():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        data = request.get_json() if request.is_json else request.form
-        response = requests.post(f"{BACKEND_API_URL}/signup", json=data)
-        return jsonify(response.json()), response.status_code
+        try:
+            logger.info("🔵 [FRONTEND SIGNUP] Request received")
+            
+            # Get request data
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form.to_dict()
+            
+            logger.info(f"🔵 [FRONTEND SIGNUP] Data received: {data}")
+            logger.info(f"🔵 [FRONTEND SIGNUP] Backend URL: {BACKEND_API_URL}")
+            
+            # Validate backend URL is set
+            if not BACKEND_API_URL:
+                logger.error("❌ [FRONTEND SIGNUP] BACKEND_API_URL is not set!")
+                return jsonify({
+                    "success": False,
+                    "message": "Backend URL not configured. Please check environment variables."
+                }), 500
+            
+            # Make request to backend
+            try:
+                backend_url = f"{BACKEND_API_URL}/signup"
+                logger.info(f"🔵 [FRONTEND SIGNUP] Calling backend: {backend_url}")
+                
+                response = requests.post(backend_url, json=data, timeout=30)
+                logger.info(f"🔵 [FRONTEND SIGNUP] Backend response status: {response.status_code}")
+                logger.info(f"🔵 [FRONTEND SIGNUP] Backend response headers: {dict(response.headers)}")
+                logger.info(f"🔵 [FRONTEND SIGNUP] Backend response text (first 500 chars): {response.text[:500]}")
+                
+                # Try to parse JSON response
+                try:
+                    result = response.json()
+                    logger.info(f"🔵 [FRONTEND SIGNUP] Parsed JSON: {result}")
+                    return jsonify(result), response.status_code
+                except ValueError as e:
+                    logger.error(f"❌ [FRONTEND SIGNUP] Failed to parse JSON: {e}")
+                    logger.error(f"❌ [FRONTEND SIGNUP] Response text: {response.text}")
+                    return jsonify({
+                        "success": False,
+                        "message": f"Backend returned invalid JSON (status {response.status_code}): {response.text[:200]}"
+                    }), 500
+                    
+            except requests.exceptions.Timeout:
+                logger.error("❌ [FRONTEND SIGNUP] Request timeout")
+                return jsonify({
+                    "success": False,
+                    "message": "Request to backend timed out. Please try again."
+                }), 504
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"❌ [FRONTEND SIGNUP] Connection error: {e}")
+                return jsonify({
+                    "success": False,
+                    "message": f"Cannot connect to backend at {BACKEND_API_URL}. Please check if backend is running."
+                }), 503
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ [FRONTEND SIGNUP] Request error: {e}")
+                return jsonify({
+                    "success": False,
+                    "message": f"Error communicating with backend: {str(e)}"
+                }), 500
+                
+        except Exception as e:
+            logger.exception("❌ [FRONTEND SIGNUP] Unexpected error")
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(f"❌ [FRONTEND SIGNUP] Full traceback: {error_trace}")
+            return jsonify({
+                "success": False,
+                "message": f"Unexpected error: {str(e)}"
+            }), 500
+            
     return render_template('signup.html')
 
 @app.route('/signin', methods=['GET', 'POST'])
@@ -275,7 +357,8 @@ def home():
         
         if response.status_code == 200:
             user_data = response.json().get('user')
-            return render_template('home.html', user=user_data)
+            # Pass backend URL to template for JavaScript
+            return render_template('home.html', user=user_data, backend_url=PUBLIC_BACKEND_URL)
         else:
             return redirect(url_for('signin'))
     except Exception as e:
@@ -430,6 +513,7 @@ def linkedin_agent():
         'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
         'user_linkedin_url': user_linkedin_url,  # From database
         'user_id': user_id,  # Pass user_id to template
+        'backend_url': PUBLIC_BACKEND_URL,  # Backend URL for client-side requests
     }
     return render_template('linkedin_agent.html', user=user_data, env_config=env_config, user_linkedin_data=user_linkedin_data)
 
@@ -513,6 +597,7 @@ def linkedin_agent_chat():
         'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
         'user_linkedin_url': user_linkedin_url,
         'user_id': user_id,
+        'backend_url': PUBLIC_BACKEND_URL,  # Backend URL for client-side requests
     }
 
     return render_template(
@@ -555,5 +640,16 @@ def gap_analysis():
         gap_trends_api=trends_api,
     )
 
+# Health check endpoint for Azure Container Apps
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Azure Container Apps"""
+    return jsonify({
+        "status": "healthy",
+        "service": "frontend"
+    }), 200
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    # Use production settings when FLASK_ENV is set to production
+    debug_mode = os.getenv('FLASK_ENV', 'development') != 'production'
+    app.run(debug=debug_mode, host='0.0.0.0', port=3000)

@@ -33,6 +33,10 @@
                 <script>
                     // Store user ID for JavaScript
                     window.DASHBOARD_USER_ID = {{ user.id if user else 'null' }};
+                    // Store backend URL for JavaScript
+                    window.ENV_CONFIG = {
+                        backend_url: '{{ backend_url }}'
+                    };
                 </script>
 
                 <!-- Loading State -->

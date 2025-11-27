@@ -1,7 +1,7 @@
 // LinkedIn Agent JavaScript
-// Use relative URL for same-origin requests, or configure based on environment
-// In Docker, frontend can call backend via http://backend:5000, but from browser we need to use the exposed port
-const BACKEND_URL = window.location.protocol + '//' + window.location.hostname + ':5000';
+// Use backend URL from environment config (set by Flask template)
+// Falls back to constructed URL for local development
+const BACKEND_URL = window.ENV_CONFIG?.backend_url || (window.location.protocol + '//' + window.location.hostname + ':5000');
 
 // Initialize agentState with API keys from .env (via window.ENV_CONFIG)
 let agentState = {

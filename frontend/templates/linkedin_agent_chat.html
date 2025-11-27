@@ -72,7 +72,8 @@
             google_sheet_url: '{{ env_config.google_sheet_url }}',
             linkedin_session_cookie: '{{ env_config.linkedin_session_cookie }}',
             user_linkedin_url: '{{ env_config.user_linkedin_url }}',
-            user_id: '{{ env_config.user_id }}'
+            user_id: '{{ env_config.user_id }}',
+            backend_url: '{{ env_config.backend_url }}'
         };
 
         window.USER_LINKEDIN_DATA = {{ user_linkedin_data | tojson | default('null', true) }};

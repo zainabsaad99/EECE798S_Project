@@ -1,6 +1,11 @@
 // Dashboard JavaScript
-// Get backend URL - try to use the same pattern as other frontend files
+// Get backend URL from environment config (set by Flask template)
+// Falls back to constructed URL for local development
 const BACKEND_API_URL = (() => {
+    // First try ENV_CONFIG (set by templates)
+    if (window.ENV_CONFIG?.backend_url) {
+        return window.ENV_CONFIG.backend_url;
+    }
     // Check if we're in development (localhost) or production
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:5000';

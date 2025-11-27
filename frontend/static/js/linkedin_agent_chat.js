@@ -1,4 +1,4 @@
-const BACKEND_URL = window.location.protocol + '//' + window.location.hostname + ':5000';
+const BACKEND_URL = window.ENV_CONFIG?.backend_url || (window.location.protocol + '//' + window.location.hostname + ':5000');
 
 const chatState = {
     openaiKey: window.ENV_CONFIG?.openai_api_key || '',
@@ -649,7 +649,7 @@ async function loadLinkedInPostCount() {
     if (!chatState.userId) return;
     
     try {
-        const BACKEND_URL = window.location.protocol + '//' + window.location.hostname + ':5000';
+        const BACKEND_URL = window.ENV_CONFIG?.backend_url || (window.location.protocol + '//' + window.location.hostname + ':5000');
         const response = await fetch(`${BACKEND_URL}/api/dashboard/stats?user_id=${chatState.userId}`);
         const data = await response.json();
         

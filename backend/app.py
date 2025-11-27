@@ -4,6 +4,7 @@ import mysql.connector
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
+import sys
 from datetime import datetime
 import tempfile
 import shutil
@@ -62,9 +63,25 @@ DEFAULT_GAP_BUSINESSES = [
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging for Azure (structured logging to stdout)
+logging.basicConfig(
+    level=logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+
+# Configure CORS for Azure deployment
+# Allow specific origins via CORS_ORIGINS env var (comma-separated)
+# Defaults to '*' for local development
+allowed_origins = os.getenv('CORS_ORIGINS', '*').split(',')
+if allowed_origins == ['*']:
+    CORS(app)  # Allow all origins (for local development)
+else:
+    CORS(app, origins=allowed_origins, supports_credentials=True)
 
 DB_HOST = os.getenv('DB_HOST', 'db')  # 'db' matches the service name in docker-compose.yml
 DB_PORT = os.getenv('DB_PORT', '3306')
@@ -75,12 +92,18 @@ MAX_LOGO_UPLOAD_BYTES = int(os.getenv('MAX_LOGO_UPLOAD_BYTES', 5 * 1024 * 1024))
 MAX_REFERENCE_IMAGE_BYTES = int(os.getenv('MAX_REFERENCE_IMAGE_BYTES', 10 * 1024 * 1024))
 
 def get_db_connection():
+    # Azure MySQL requires SSL connection
+    # For local development with docker-compose, SSL is disabled
+    # For Azure MySQL, SSL is required
+    use_ssl = 'database.azure.com' in DB_HOST
+    
     conn = mysql.connector.connect(
         host=DB_HOST,
         port=DB_PORT,
         database=DB_NAME,
         user=DB_USER,
-        password=DB_PASSWORD
+        password=DB_PASSWORD,
+        ssl_disabled=not use_ssl
     )
     return conn
 
@@ -1301,7 +1324,26 @@ def linkedin_clear_sheet():
 def linkedin_service_account_file():
     """Serve the default service account JSON file"""
     try:
-        # Try multiple possible paths
+        # First, try to read from environment variable (for Azure deployment)
+        google_creds_env = os.getenv('GOOGLE_CREDENTIALS_JSON')
+        if google_creds_env:
+            try:
+                import base64
+                # Decode base64 if needed
+                if google_creds_env.startswith('data:'):
+                    content = base64.b64decode(google_creds_env.split(',')[1]).decode('utf-8')
+                else:
+                    # Try to decode as base64, if it fails, use as-is
+                    try:
+                        content = base64.b64decode(google_creds_env).decode('utf-8')
+                    except:
+                        content = google_creds_env
+                app.logger.info("Found service account JSON in environment variable")
+                return content, 200, {'Content-Type': 'application/json'}
+            except Exception as e:
+                app.logger.warning(f"Failed to decode GOOGLE_CREDENTIALS_JSON: {e}")
+        
+        # Try multiple possible paths (for local development)
         possible_paths = [
             # In Docker container (copied to /app)
             Path(__file__).parent / 'linkedin-agent-478216-f37f2b2ce601.json',
@@ -2432,7 +2474,29 @@ def dashboard_stats():
         app.logger.exception("Dashboard stats failed")
         return jsonify({"success": False, "message": str(e)}), 500
 
+# ----------------------------- HEALTH CHECK -----------------------------
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Azure Container Apps"""
+    try:
+        # Check database connection
+        conn = get_db_connection()
+        conn.close()
+        return jsonify({
+            "status": "healthy",
+            "service": "backend",
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "service": "backend",
+            "error": str(e)
+        }), 503
+
 # ----------------------------- RUN APP -----------------------------
 if __name__ == '__main__':
     # Database initialization is handled by docker-compose via schema.sql
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use production settings when FLASK_ENV is set to production
+    debug_mode = os.getenv('FLASK_ENV', 'development') != 'production'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
