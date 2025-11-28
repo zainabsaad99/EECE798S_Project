@@ -1299,30 +1299,29 @@ def linkedin_clear_sheet():
 
 @app.route('/api/linkedin/service-account-file', methods=['GET'])
 def linkedin_service_account_file():
-    """Serve the default service account JSON file"""
     try:
-        # Try multiple possible paths
-        possible_paths = [
-            # In Docker container (copied to /app)
-            Path(__file__).parent / 'linkedin-agent-478216-f37f2b2ce601.json',
-            # Project root (for local development)
-            Path(__file__).parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
-            # Alternative project root
-            Path(__file__).parent.parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
-        ]
-        
-        for sa_file_path in possible_paths:
-            if sa_file_path.exists():
-                app.logger.info(f"Found service account file at: {sa_file_path}")
-                with open(sa_file_path, 'r') as f:
-                    content = f.read()
-                return content, 200, {'Content-Type': 'application/json'}
-        
-        # If not found, log all attempted paths
-        app.logger.warning(f"Service account file not found. Checked paths: {possible_paths}")
-        return jsonify({"error": f"Service account file not found. Checked: {possible_paths}"}), 404
+        service_account = {
+            "type": os.getenv("GOOGLE_SERVICE_ACCOUNT_TYPE"),
+            "project_id": os.getenv("GOOGLE_SERVICE_ACCOUNT_PROJECT_ID"),
+            "private_key_id": os.getenv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID"),
+            "private_key": os.getenv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"),
+            "client_email": os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL"),
+            "client_id": os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_ID"),
+            "auth_uri": os.getenv("GOOGLE_SERVICE_ACCOUNT_AUTH_URI"),
+            "token_uri": os.getenv("GOOGLE_SERVICE_ACCOUNT_TOKEN_URI"),
+            "auth_provider_x509_cert_url": os.getenv("GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL"),
+            "client_x509_cert_url": os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_X509_CERT_URL"),
+            "universe_domain": os.getenv("GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN")
+        }
+
+        missing = [k for k, v in service_account.items() if not v]
+        if missing:
+            return jsonify({"error": "Missing service account environment variables", "missing": missing}), 500
+
+        return jsonify(service_account), 200
+
     except Exception as e:
-        app.logger.exception("Error serving service account file")
+        app.logger.exception("Error creating service account from environment")
         return jsonify({"error": str(e)}), 500
 
 

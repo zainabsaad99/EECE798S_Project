@@ -418,15 +418,12 @@ def linkedin_agent():
                              error_message="An error occurred. Please try again.")
     
     # Read API keys from environment variables (if set)
-    # Default Google Sheet URL
-    default_sheet_url = 'https://docs.google.com/spreadsheets/d/10OsJwVQAboMx3LKfoZhQLRQ9w9UuekvNG1_oaZNgOMM/edit?usp=sharing'
-    
     env_config = {
         'openai_api_key': os.environ.get('OPENAI_API_KEY', ''),
         'phantombuster_api_key': os.environ.get('PHANTOMBUSTER_API_KEY', ''),
         'firecrawl_api_key': os.environ.get('FIRECRAWL_API_KEY', ''),
         'user_agent': os.environ.get('USER_AGENT', ''),
-        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', default_sheet_url),
+        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', ''),
         'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
         'user_linkedin_url': user_linkedin_url,  # From database
         'user_id': user_id,  # Pass user_id to template
@@ -503,13 +500,12 @@ def linkedin_agent_chat():
             error_message="An error occurred. Please try again."
         )
 
-    default_sheet_url = 'https://docs.google.com/spreadsheets/d/10OsJwVQAboMx3LKfoZhQLRQ9w9UuekvNG1_oaZNgOMM/edit?usp=sharing'
     env_config = {
         'openai_api_key': os.environ.get('OPENAI_API_KEY', ''),
         'phantombuster_api_key': os.environ.get('PHANTOMBUSTER_API_KEY', ''),
         'firecrawl_api_key': os.environ.get('FIRECRAWL_API_KEY', ''),
         'user_agent': os.environ.get('USER_AGENT', ''),
-        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', default_sheet_url),
+        'google_sheet_url': os.environ.get('GOOGLE_SHEET_URL', ''),
         'linkedin_session_cookie': os.environ.get('LINKEDIN_SESSION_COOKIE', ''),
         'user_linkedin_url': user_linkedin_url,
         'user_id': user_id,
