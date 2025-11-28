@@ -38,8 +38,6 @@ services:
       DB_PASSWORD: password
     ports:
       - "5000:5000"
-    volumes:
-      - ./linkedin-agent-478216-f37f2b2ce601.json:/app/linkedin-agent-478216-f37f2b2ce601.json:ro
     depends_on:
       - db
     networks:
