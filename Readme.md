@@ -1,8 +1,11 @@
 # EECE798S Project - Fall 2025-2026
 ## Team Members
 **Aline Hassan**
+
 **Jenny Haddad**
+
 **Zeinab Saad**
+
 
 A comprehensive full-stack AI-powered application for automated content generation, LinkedIn automation, gap analysis, and social media management. This project leverages multiple AI agents, web scraping, and cloud services to provide intelligent content creation and business intelligence capabilities.
 
