@@ -55,6 +55,78 @@ This application provides a suite of AI-powered tools designed to streamline con
 
 ---
 
+## 📊 Evaluation Metrics
+
+To measure the quality and reliability of our system, we built a semantic evaluation pipeline powered by embedding. To validate the quality, reliability, and alignment of our system's outputs, we developed a multi-stage evaluation framework:
+
+### 1. Evaluation Dataset Construction
+
+We curated a structured evaluation dataset containing:
+
+- Ground-truth business profiles
+- Ground-truth market trends
+- Expected keyword associations
+- Gold-standard proposals and outputs
+
+This dataset is used consistently across all evaluation components to benchmark system performance.
+
+### 2. Keyword & Profile Matching (Bi-gram + Rule-Based Checks)
+
+We used bi-gram extraction and matching to compare:
+
+- Extracted company profiles vs. ground truth
+- Generated keyword sets vs. gold-standard keywords
+
+**Accuracy: 93%**
+
+### 3. Trend Alignment Evaluation (LLM-as-a-Judge)
+
+To measure how well the system identifies relevant trends, we use an LLM evaluator that:
+
+- Compares system-extracted trends with the reference trends
+- Judges relevance, correctness, and contextual alignment
+
+**Accuracy: 84%**
+
+### 4. Coverage Classification Using Embeddings + Cosine Similarity
+
+To verify the correctness of predicted covered, weak coverage, and gap labels, we compute:
+
+- Embedding vectors for products and trends
+- Cosine similarity between them
+- Threshold-based classification
+
+**Accuracy: 79%**
+
+### 5. Proposal Quality Evaluation (LLM-as-a-Judge)
+
+For each generated proposal, an LLM performs a structured evaluation and assigns a 1–10 score for each dimension across six strategic dimensions:
+
+- Strategic Fit
+- Market Relevance
+- Gap Exploitation
+- Feasibility
+- Differentiation
+- Clarity
+
+**Score: 7/10**
+
+### 6. Content Creation
+
+We evaluated our system on 306 posts across Instagram, Twitter, TikTok, and LinkedIn using a hybrid evaluation method combining cosine similarity and an LLM-as-a-Judge framework.
+
+The average performance scores are:
+
+| Metric            | Average Score |
+|-------------------|---------------|
+| Tone Match        | 89.09         |
+| Format Fit        | 90.45         |
+| Writing Quality   | 89.16         |
+| Human-Likeness    | 94.15         |
+| Final Score       | 90.02         |
+
+---
+
 ## 🚀 Quick Start
 
 ### Option 1: Use the Deployed Version (Recommended)
@@ -64,6 +136,9 @@ This application provides a suite of AI-powered tools designed to streamline con
 **Frontend URL:** https://frontend-app.politesmoke-54b92664.eastus.azurecontainerapps.io
 
 Simply open the URL in your browser to start using all the application features immediately. No installation or configuration required!
+
+**⚠️ Important Note for Deployed Version:**
+- If you experience any issues with **fetching websites** or **gap analysis** features, this likely means the available Firecrawl API credits have been exhausted. In this case, please run the application locally and use your own Firecrawl API key (see Step 5 in the local setup instructions below).
 
 ---
 
@@ -233,6 +308,9 @@ cd EECE798S_Project
    - Type: `navigator.userAgent` and press Enter
    - Copy the returned value
    - Alternatively, visit [WhatIsMyBrowser.com](https://www.whatismybrowser.com/detect/what-is-my-user-agent) to get your user agent
+
+**⚠️ Important Note for Linux/Mac Users:**
+- If you are working on **Linux or Mac** and experience any issues with **posting on LinkedIn**, make sure you sign in to LinkedIn on **Windows** to get the session cookie. The LinkedIn session cookie format may differ between operating systems, and using a Windows-generated cookie ensures compatibility with the posting functionality.
 
 ### Step 7: Create .env File
 
@@ -485,6 +563,8 @@ If you encounter port conflicts:
 - Check PhantomBuster API key is valid and Developer Mode is enabled
 - Verify Google Service Account JSON credentials are correctly formatted
 - Ensure LinkedIn session cookie (`li_at`) is valid and not expired
+- **For Linux/Mac users:** If LinkedIn posting fails, try getting the session cookie from a Windows machine, as cookie formats may differ between operating systems
+- **For deployed version:** If website fetching or gap analysis fails, the Firecrawl API credits may be exhausted - run locally with your own API key
 
 ### Google Sheets Issues
 
