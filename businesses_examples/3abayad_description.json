@@ -1,0 +1,21 @@
+[
+  {
+    "name": "3abayad",
+    "strapline": "To provide high-quality, artisanal egg white products that are safe, nutritious, and convenient for consumers.",
+    "audience": "Individuals seeking clean protein sources and convenient cooking ingredients.",
+    "products": [
+      {
+        "name": "100% Liquid Egg Whites – Pasteurized (Glass Bottle)",
+        "description": "This product offers artisanal, pasteurized liquid egg whites packaged in eco-friendly glass bottles, providing a high-protein, fat-free clean nutrition option. Sourced from Lebanon, it ensures safety through pasteurization and promotes sustainability by reusing yolks. Ideal for health-conscious consumers looking for a versatile protein source."
+      },
+      {
+        "name": "3a Bayad Egg Whites",
+        "description": "3a Bayad Egg Whites are premium, gently pasteurized egg whites sourced locally in Lebanon, designed for safe use in smoothies and shakes. Offered in multiple sizes and bottled in glass, this product ensures freshness and quality, making it a valuable addition to health-conscious diets."
+      },
+      {
+        "name": "100% Liquid Egg Whites – Pasteurized (Glass Bottle)",
+        "description": "These artisanal, pasteurized liquid egg whites are a high-protein, fat-free nutritional option, packaged in eco-friendly glass bottles. Sourced from Lebanon, they offer clean nutrition with the added benefit of yolk reuse, making them both sustainable and nutritious."
+      }
+    ]
+  }
+]

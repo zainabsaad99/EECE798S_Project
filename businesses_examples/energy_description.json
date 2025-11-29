@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Get Energyze",
+    "strapline": "To provide high-quality moringa products that promote health and wellness.",
+    "audience": "Individuals interested in improving their health through natural products.",
+    "products": [
+      {
+        "name": "Energyzed™ All-in-1 Moringa Powder",
+        "description": "Energyzed™ All-in-1 Moringa Powder is a versatile nutritional supplement designed to enhance recipes and smoothies with its rich content of vitamins and minerals. This superfood supports immune health and promotes energy and vitality, making it a valuable addition to any health-conscious diet."
+      },
+      {
+        "name": "Energyze™ Moringa Powder",
+        "description": "Energyze™ Moringa Powder is a 100% natural supplement designed to boost energy levels, support gut health, and enhance immunity. Leveraging the powerful health benefits of Moringa, this product stands out for its commitment to purity and wellness, making it an ideal choice for those seeking a natural energy boost."
+      }
+    ]
+  }
+]

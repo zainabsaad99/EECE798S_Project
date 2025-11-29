@@ -360,6 +360,65 @@ Once the application is running, you can:
 
 ---
 
+## 🧪 Testing Gap Analysis with Example Businesses
+
+To help you get started with the Gap Analysis feature, we've included example business profiles that you can use for testing. These examples demonstrate real small businesses that you can analyze.
+
+### Example Businesses
+
+1. **[3abayad](https://3abayad.com)** - A premium Lebanese egg white product company offering pasteurized liquid egg whites in glass bottles.
+
+2. **[GetEnergyze](https://getenergyze.com)** - A health and wellness brand specializing in moringa powder supplements for energy, gut health, and immunity.
+
+### Using Example Business Profiles
+
+1. **Locate the Example Files**
+   - Navigate to the `businesses_examples/` folder in the repository
+   - You'll find JSON files for each example business:
+     - `3abayad_description.json`
+     - `energy_description.json`
+
+2. **Upload a Business Profile**
+   - Go to the **Upload Profile** page in the application (for Gap Analysis)
+   - Download one of the JSON files from the `businesses_examples/` folder
+   - Upload the JSON file to test the gap analysis functionality
+   - The system will analyze the business and identify market opportunities
+
+3. **Testing Different Businesses**
+   - If you want to test with different businesses, you'll need to create a JSON file following the same structure
+   - The JSON file should contain an array with business objects that include:
+     - `name`: Business name
+     - `strapline`: Business mission or tagline
+     - `audience`: Target audience description
+     - `products`: Array of product objects, each with:
+       - `name`: Product name
+       - `description`: Detailed product description
+
+   **Example JSON Structure:**
+   ```json
+   [
+     {
+       "name": "Your Business Name",
+       "strapline": "Your business mission or tagline",
+       "audience": "Description of your target audience",
+       "products": [
+         {
+           "name": "Product Name",
+           "description": "Detailed description of the product"
+         }
+       ]
+     }
+   ]
+   ```
+
+4. **What the Gap Analysis Does**
+   - Analyzes your business profile against current market trends
+   - Identifies gaps in your product offerings
+   - Suggests opportunities based on trending keywords
+   - Provides insights on market positioning
+
+---
+
 ## 🎥 Demo Video
 
 A demo video (`Demo_eece798.mp4`) is available to showcase the different functionalities of the application. The video demonstrates all features at high speed, giving you a quick overview of what the application can do.
@@ -382,6 +441,9 @@ EECE798S_Project/
 │   └── Dockerfile        # Backend Docker configuration
 ├── Fetch_Website/        # Website extraction service
 ├── trend_keywords/       # Trend keywords and LLM service
+├── businesses_examples/  # Example business JSON files for gap analysis testing
+│   ├── 3abayad_description.json
+│   └── energy_description.json
 ├── mysql/                # Database schema
 │   └── schema.sql       # Database initialization script
 ├── docker-compose.yml    # Docker Compose configuration
