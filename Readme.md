@@ -1,135 +1,365 @@
-# EECE798S Project
+# EECE798S Project - Fall 2025-2026
+## Team Members
+**Aline Hassan**
+**Jenny Haddad**
+**Zeinab Saad**
 
-A full-stack application with Flask frontend, backend API, and multiple microservices for content generation, LinkedIn agent functionality, and gap analysis.
+A comprehensive full-stack AI-powered application for automated content generation, LinkedIn automation, gap analysis, and social media management. This project leverages multiple AI agents, web scraping, and cloud services to provide intelligent content creation and business intelligence capabilities.
+
+## 📋 Project Overview
+
+This application provides a suite of AI-powered tools designed to streamline content creation and business analysis workflows:
+
+### Core Functionalities
+
+1. **LinkedIn Content Agent**
+   - Automated LinkedIn profile scraping and analysis
+   - Intelligent post generation based on user's writing style
+   - Keyword extraction from LinkedIn activity
+   - Trend analysis and integration
+   - Automated posting to LinkedIn via PhantomBuster
+   - Google Sheets integration for content management
+
+2. **Social Media Content Generation**
+   - Multi-platform content creation (LinkedIn, Twitter, Instagram, Facebook)
+   - AI-generated images with logo placement
+   - Customizable content styles and formats
+   - Reference image-based styling
+
+3. **Proposal Generation**
+   - Automated proposal content creation
+   - Image generation for proposals
+   - Customizable templates and formats
+
+4. **Gap Analysis**
+   - Market trend identification
+   - Competitive analysis
+   - Business opportunity detection
+   - Keyword-based trend analysis
+   - Semantic similarity analysis
+
+5. **Website Data Extraction**
+   - Automated website scraping
+   - Product and company information extraction
+   - Trend keyword identification
+   - Data storage and management
+
+6. **User Management**
+   - User authentication and registration
+   - Activity tracking
+   - Dashboard with statistics
+   - Data persistence
+
+---
 
 ## 🚀 Quick Start
 
 ### Option 1: Use the Deployed Version (Recommended)
 
-You can access the live application without any local setup:
+**We highly recommend using the deployed version for the best experience without any setup hassle.**
 
 **Frontend URL:** https://frontend-app.politesmoke-54b92664.eastus.azurecontainerapps.io
 
-Simply open the URL in your browser to start using the application.
+Simply open the URL in your browser to start using all the application features immediately. No installation or configuration required!
 
 ---
 
 ### Option 2: Run Locally
 
-Follow these steps to run the application on your local machine:
+If you want to run the application locally for development or customization, follow the comprehensive setup guide below.
 
 #### Prerequisites
 
 - [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/) installed
 - Git (to clone the repository)
+- Accounts for the following services (setup instructions provided below):
+  - OpenAI (with image model access)
+  - PhantomBuster
+  - Firecrawl
+  - Google Cloud Platform (for Google Sheets integration)
 
-#### Setup Steps
+---
 
-1. **Clone the repository** (if you haven't already)
-   ```bash
-   git clone <repository-url>
-   cd EECE798S_Project
-   ```
+## 📦 Local Setup Instructions
 
-2. **Create a `.env` file** in the project root directory
-   
-   Create a `.env` file with the following environment variables:
-   ```env
-   # Database Configuration
-   MYSQL_DATABASE=NextGenAI
-   MYSQL_ROOT_PASSWORD=password
-   
-   # Flask Configuration
-   SECRET_KEY=your-secret-key-here
-   FLASK_ENV=development
-   
-   # ============================================
-   # REQUIRED API KEYS
-   # ============================================
-   
-   # OpenAI API Key - Get from: https://platform.openai.com/api-keys
-   OPENAI_API_KEY=sk-proj-ta6plQ0FIr9YkpRXT3CUTya4HLA1sycGw**-dMO9jFzKMGwFlrybabVXpa5CHBvtEsm3e3I81gT3BlbkFJCSJIXxBTFMMyAQoTksOU6v4x3BNH7S7w2K_u6JKxfhI_sAkJQa94CBu1gN_jr_oHcSfhnHXkgA
-   # Replace ** with: AQ
-   
-   # PhantomBuster API Key - Get from: https://www.phantombuster.com/
-   PHANTOMBUSTER_API_KEY=Pyu5Vs**IJ58AGePW6gK68pwEDTNlHPYNCWOOmxccX4
-   # Replace ** with: El
-   
-   # Firecrawl API Key - Get from: https://www.firecrawl.dev/
-   FIRECRAWL_API_KEY=fc-**8e3d8da9bf4560a320ca55cfa483a9
-   # Replace ** with: 79
-   
-   # ============================================
-   # REQUIRED LINKEDIN CREDENTIALS
-   # ============================================
-   
-   # LinkedIn Session Cookie
-   # How to get: F12 → Application → Cookies → linkedin.com → Copy "li_at" value
-   LINKEDIN_SESSION_COOKIE=AQEDAV_V5FYA**PWAAABmeNAxoYAAAGav4JyV04AB0dHLZkJjmEOeY1v6oXTpJ6RPG2DbJU1WdcuQ6cdrExVBfA6BQ-CCTlxVhi66n91WNscgAeMW67mXNgv333Jk9IqYuvZ8RqhqXU-3imYKQF0LDeX
-   # Replace ** with: gs
-   
-   # Browser User Agent
-   # Get from: https://www.whatismybrowser.com/detect/what-is-my-user-agent
-   USER_AGENT=Mo**illa/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
-   # Replace ** with: zz
-   
-   # Google Sheets (Optional)
-   GOOGLE_SHEET_URL=your-google-sheet-url
-   ```
+### Step 1: Clone the Repository
 
-3. **Build and start the services**
+```bash
+git clone <repository-url>
+cd EECE798S_Project
+```
+
+### Step 2: Create Google Sheet and Set Up Google Cloud
+
+1. **Create a Google Sheet**
+   - Go to [Google Sheets](https://sheets.google.com)
+   - Create a new spreadsheet
+   - Note the URL (you'll need it later for `GOOGLE_SHEET_URL`)
+
+2. **Set Up Google Cloud Console**
+   
+   Follow these steps to get your Google Service Account credentials:
+
+   1. **Visit Google Cloud Console**
+      - Go to [Google Cloud Console](https://console.cloud.google.com/)
+
+   2. **Create a New Project**
+      - Click on the project dropdown at the top
+      - Click "New Project"
+      - Enter a project name (e.g., "EECE798S-Project")
+      - Click "Create"
+
+   3. **Go to API and Services**
+      - In the left sidebar, navigate to "APIs & Services" → "Library"
+
+   4. **Enable Google Sheets API**
+      - Search for "Google Sheets API"
+      - Click on it and press "Enable"
+
+   5. **Create Service Account Credentials**
+      - Go to "APIs & Services" → "Credentials"
+      - Click "Create Credentials" → "Service Account"
+      - Enter a name for the service account (e.g., "sheets-service")
+      - Click "Create and Continue"
+      - Skip optional steps and click "Done"
+
+   6. **Download the JSON Key File**
+      - Click on the created service account
+      - Go to the "Keys" tab
+      - Click "Add Key" → "Create new key"
+      - Select "JSON" format
+      - Click "Create" - the JSON file will download automatically
+
+   7. **Share Google Sheet with Service Account**
+      - Open the downloaded JSON file
+      - Copy the `client_email` value (e.g., `your-service-account@project-id.iam.gserviceaccount.com`)
+      - Open your Google Sheet
+      - Click "Share" button
+      - Paste the service account email
+      - Give it "Editor" permissions
+      - Click "Send"
+
+### Step 3: Get OpenAI API Key
+
+1. **Create/Login to OpenAI Account**
+   - Go to [OpenAI Platform](https://platform.openai.com/)
+   - Sign up or log in
+
+2. **Get API Key**
+   - Navigate to [API Keys](https://platform.openai.com/api-keys)
+   - Click "Create new secret key"
+   - Copy the API key (you won't be able to see it again)
+
+3. **Verify Image Model Access**
+   - Go to your [Organization Settings](https://platform.openai.com/org-settings)
+   - Verify that your organization has access to image generation models (DALL-E)
+   - If not, you may need to upgrade your plan or request access
+   - **Important:** The application requires access to OpenAI's image models for content generation
+
+### Step 4: Set Up PhantomBuster
+
+1. **Create PhantomBuster Account**
+   - Go to [PhantomBuster](https://www.phantombuster.com/)
+   - Sign up for an account
+
+2. **Activate Developer Mode**
+   - Log in to your PhantomBuster account
+   - Go to your Profile → Advanced Settings
+   - Enable "Developer Mode"
+   - This will give you access to API keys and phantom management
+
+3. **Get API Key**
+   - After enabling Developer Mode, go to your account settings
+   - Find your API key in the API section
+   - Copy the API key
+
+4. **Create Required Phantoms**
+   
+   You need to create two phantoms in PhantomBuster:
+
+   a. **LinkedIn Activity Extractor**
+      - Go to PhantomBuster dashboard
+      - Click "Create a Phantom"
+      - Search for "LinkedIn Activity Extractor" or similar
+      - Create and configure the phantom
+      - Note the Phantom ID (found in the phantom's URL or settings)
+
+   b. **LinkedIn Auto Poster**
+      - Create another phantom
+      - Search for "LinkedIn Auto Poster" or similar
+      - Create and configure the phantom
+      - Note the Phantom ID
+
+5. **Update Phantom IDs in Code**
+   - Open `backend/linkedin_agent.py`
+   - Find these lines (around line 44-45):
+     ```python
+     SCRAPE_AGENT_ID = "157605755168271"  # LinkedIn Activities Scraper
+     POST_AGENT_ID = "4269915876888936"    # LinkedIn Auto Poster
+     ```
+   - Replace `SCRAPE_AGENT_ID` with your LinkedIn Activity Extractor phantom ID
+   - Replace `POST_AGENT_ID` with your LinkedIn Auto Poster phantom ID
+
+### Step 5: Get Firecrawl API Key
+
+1. **Create Firecrawl Account**
+   - Go to [Firecrawl](https://www.firecrawl.dev/)
+   - Sign up for an account
+
+2. **Get API Key**
+   - After signing up, navigate to your dashboard
+   - Find your API key in the API section
+   - Copy the API key
+
+### Step 6: Get LinkedIn Session Cookie
+
+1. **Log in to LinkedIn**
+   - Open LinkedIn in your browser
+   - Log in to your account
+
+2. **Extract Session Cookie**
+   - Open Developer Tools (F12 or Right-click → Inspect)
+   - Go to the "Application" tab (Chrome) or "Storage" tab (Firefox)
+   - In the left sidebar, expand "Cookies" → `https://www.linkedin.com`
+   - Find the cookie named `li_at`
+   - Copy the entire value of the `li_at` cookie
+   - **Note:** This cookie is used for scraping LinkedIn profiles. Keep it secure and don't share it.
+
+3. **Get User Agent**
+   - While in Developer Tools, go to the "Console" tab
+   - Type: `navigator.userAgent` and press Enter
+   - Copy the returned value
+   - Alternatively, visit [WhatIsMyBrowser.com](https://www.whatismybrowser.com/detect/what-is-my-user-agent) to get your user agent
+
+### Step 7: Create .env File
+
+Create a `.env` file in the project root directory (`EECE798S_Project/.env`) with the following content:
+
+```env
+
+
+# OpenAI API Key
+# Get from: https://platform.openai.com/api-keys
+# Make sure your organization has access to image models
+OPENAI_API_KEY=
+
+# PhantomBuster API Key
+# Get from: https://www.phantombuster.com/ (after enabling Developer Mode)
+PHANTOMBUSTER_API_KEY=
+
+# Firecrawl API Key
+# Get from: https://www.firecrawl.dev/
+FIRECRAWL_API_KEY=
+
+# LinkedIn Credentials
+# Get li_at cookie from browser Developer Tools (Application → Cookies → linkedin.com)
+LINKEDIN_SESSION_COOKIE=
+
+# Browser User Agent
+# Get from browser Developer Tools console: navigator.userAgent
+USER_AGENT=
+
+# Google Service Account Credentials
+# Extract from the downloaded JSON file from Google Cloud Console
+GOOGLE_SERVICE_ACCOUNT_TYPE=
+GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=""
+GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_CLIENT_ID=
+GOOGLE_SERVICE_ACCOUNT_AUTH_URI=
+GOOGLE_SERVICE_ACCOUNT_TOKEN_URI=
+GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL=
+GOOGLE_SERVICE_ACCOUNT_CLIENT_X509_CERT_URL=
+GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN=
+
+# Google Sheet URL
+# The URL of the Google Sheet you created (make sure it's shared with the service account email) and the shared URL provide editor mode.
+GOOGLE_SHEET_URL=
+```
+
+**How to Fill Google Service Account Variables:**
+
+Open the JSON file you downloaded from Google Cloud Console. It will look like this:
+
+```json
+{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "key-id-here",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "client_email": "your-service@project.iam.gserviceaccount.com",
+  "client_id": "123456789",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/...",
+  "universe_domain": "googleapis.com"
+}
+```
+
+Copy each value to the corresponding `.env` variable:
+- `type` → `GOOGLE_SERVICE_ACCOUNT_TYPE`
+- `project_id` → `GOOGLE_SERVICE_ACCOUNT_PROJECT_ID`
+- `private_key_id` → `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID`
+- `private_key` → `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (keep the `\n` characters as they are)
+- `client_email` → `GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL`
+- `client_id` → `GOOGLE_SERVICE_ACCOUNT_CLIENT_ID`
+- `auth_uri` → `GOOGLE_SERVICE_ACCOUNT_AUTH_URI`
+- `token_uri` → `GOOGLE_SERVICE_ACCOUNT_TOKEN_URI`
+- `auth_provider_x509_cert_url` → `GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_X509_CERT_URL`
+- `client_x509_cert_url` → `GOOGLE_SERVICE_ACCOUNT_CLIENT_X509_CERT_URL`
+- `universe_domain` → `GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN`
+
+**Important Notes:**
+- For `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, keep the entire value including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` and all `\n` characters
+- Make sure there are no extra spaces or quotes around the values
+- The `GOOGLE_SHEET_URL` should be the full URL of your Google Sheet (e.g., `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`)
+
+### Step 8: Build and Run with Docker Compose
+
+1. **Build and start all services:**
    ```bash
    docker-compose up --build
    ```
 
    This command will:
-   - Build Docker images for all services
+   - Build Docker images for all services (frontend, backend, database, fetch_website, trend_keywords)
    - Start the MySQL database
    - Start the backend API
    - Start the frontend application
    - Start the Fetch_Website service
    - Start the trend_keywords service
 
-4. **Access the application**
-   
-   Once all containers are running, open your browser and navigate to:
-   ```
-   http://localhost:3000
-   ```
+2. **Wait for the build to complete**
+   - The first build may take several minutes
+   - Wait until you see messages indicating all services are running
+   - Look for "Running on http://0.0.0.0:3000" for the frontend
 
-#### Service Ports
+3. **Access the application**
+   - Open your browser and navigate to:
+     ```
+     http://localhost:3000
+     ```
+   - The application should now be running locally!
 
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:5000
-- **MySQL Database:** localhost:3306
-- **Fetch Website Service:** http://localhost:3001
-- **Trend Keywords Service:** http://localhost:3002
+### Step 9: Start Experiencing the Functions
 
-#### Stopping the Application
+Once the application is running, you can:
 
-To stop all services:
-```bash
-docker-compose down
-```
+- **Sign up/Sign in** to create an account
+- **Use the LinkedIn Agent** to scrape profiles, generate posts, and auto-post
+- **Generate Social Media Content** for multiple platforms
+- **Create Proposals** with AI-generated content and images
+- **Run Gap Analysis** to identify market opportunities
+- **Extract Website Data** and analyze trends
+- **View Dashboard Statistics** and track your activity
 
-To stop and remove volumes (this will delete the database data):
-```bash
-docker-compose down -v
-```
+---
 
-#### Viewing Logs
+## 🎥 Demo Video
 
-To view logs from all services:
-```bash
-docker-compose logs -f
-```
-
-To view logs from a specific service:
-```bash
-docker-compose logs -f frontend
-docker-compose logs -f backend
-docker-compose logs -f db
-```
+A demo video (`Demo_eece798.mp4`) is available to showcase the different functionalities of the application. The video demonstrates all features at high speed, giving you a quick overview of what the application can do.
 
 ---
 
@@ -137,18 +367,39 @@ docker-compose logs -f db
 
 ```
 EECE798S_Project/
-├── frontend/          # Flask frontend application
-├── backend/           # Flask backend API
-├── Fetch_Website/     # Website extraction service
-├── trend_keywords/    # Trend keywords and LLM service
-├── mysql/             # Database schema
-├── docker-compose.yml # Docker Compose configuration
-└── .env              # Environment variables (create this)
+├── frontend/              # Flask frontend application
+│   ├── static/           # CSS, JS, and other static files
+│   └── templates/        # HTML templates
+├── backend/              # Flask backend API
+│   ├── app.py           # Main Flask application
+│   ├── linkedin_agent.py # LinkedIn automation agent
+│   ├── content_agent.py  # Social media content generation
+│   ├── proposal_agent.py # Proposal generation
+│   ├── gap_analysis.py   # Gap analysis functionality
+│   └── Dockerfile        # Backend Docker configuration
+├── Fetch_Website/        # Website extraction service
+├── trend_keywords/       # Trend keywords and LLM service
+├── mysql/                # Database schema
+│   └── schema.sql       # Database initialization script
+├── docker-compose.yml    # Docker Compose configuration
+└── .env                  # Environment variables (create this)
 ```
 
 ---
 
-## 🔧 Troubleshooting
+## 🔌 Service Ports
+
+When running locally:
+
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:5000
+- **MySQL Database:** localhost:3306
+- **Fetch Website Service:** http://localhost:3001
+- **Trend Keywords Service:** http://localhost:3002
+
+---
+
+## 🛠️ Troubleshooting
 
 ### Port Already in Use
 
@@ -165,18 +416,53 @@ If you encounter port conflicts:
 ### API Key Issues
 
 - Ensure all required API keys are set in the `.env` file
-- Some features may not work without valid API keys
+- Verify OpenAI API key has image model access
+- Check PhantomBuster API key is valid and Developer Mode is enabled
+- Verify Google Service Account JSON credentials are correctly formatted
+- Ensure LinkedIn session cookie (`li_at`) is valid and not expired
+
+### Google Sheets Issues
+
+- Verify the Google Sheet is shared with the service account email
+- Check that Google Sheets API is enabled in Google Cloud Console
+- Ensure all Google Service Account variables are correctly set in `.env`
+- Verify the `GOOGLE_SHEET_URL` is correct
+
+### PhantomBuster Issues
+
+- Ensure Developer Mode is enabled in PhantomBuster
+- Verify the Phantom IDs are correctly updated in `backend/linkedin_agent.py`
+- Check that both phantoms (LinkedIn Activity Extractor and Auto Poster) are created and configured
+
+### Docker Build Issues
+
+- Make sure Docker and Docker Compose are properly installed
+- Try cleaning Docker cache: `docker system prune -a`
+- Rebuild without cache: `docker-compose build --no-cache`
 
 ---
 
-## 📝 Notes
+## 📝 Additional Notes
 
 - The application uses Docker Compose for orchestration
 - All services communicate through a Docker network
 - The database schema is automatically initialized on first run
 - Environment variables are loaded from the `.env` file in the project root
+- The LinkedIn session cookie may expire - you'll need to update it periodically
+- Some features require valid API keys to function properly
 
 ---
 
-## DEMO Video
-Demo_eece798.mp4
+## 🔒 Security Notes
+
+- **Never commit your `.env` file** to version control
+- Keep your API keys secure and don't share them
+- The LinkedIn session cookie provides access to your LinkedIn account - treat it as a password
+- Regularly rotate API keys for security
+- The `.env` file is already in `.gitignore` to prevent accidental commits
+
+---
+
+## 📄 License
+
+This project is part of EECE798S coursework.
