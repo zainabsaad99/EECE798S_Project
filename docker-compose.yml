@@ -39,7 +39,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./linkedin-agent-478216-f37f2b2ce601.json:/app/linkedin-agent-478216-f37f2b2ce601.json:ro
+      - ./linkedin-agent-478216-9272c7ffdb61.json:/app/linkedin-agent-478216-9272c7ffdb61.json:ro
     depends_on:
       - db
     networks:

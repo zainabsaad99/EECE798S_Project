@@ -24,7 +24,7 @@ COPY linkedin_agent.py .
 
 # Copy Google credentials file (if it exists in backend folder)
 # This file will be included in the Docker image
-COPY linkedin-agent-478216-f37f2b2ce601.json /app/linkedin-agent-478216-f37f2b2ce601.json
+COPY linkedin-agent-478216-9272c7ffdb61.json /app/linkedin-agent-478216-9272c7ffdb61.json
 
 #RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 # Expose the port

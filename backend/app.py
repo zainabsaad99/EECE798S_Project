@@ -1346,11 +1346,11 @@ def linkedin_service_account_file():
         # Try multiple possible paths (for local development)
         possible_paths = [
             # In Docker container (copied to /app)
-            Path(__file__).parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+            Path(__file__).parent / 'linkedin-agent-478216-9272c7ffdb61.json',
             # Project root (for local development)
-            Path(__file__).parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+            Path(__file__).parent.parent / 'linkedin-agent-478216-9272c7ffdb61.json',
             # Alternative project root
-            Path(__file__).parent.parent.parent / 'linkedin-agent-478216-f37f2b2ce601.json',
+            Path(__file__).parent.parent.parent / 'linkedin-agent-478216-9272c7ffdb61.json',
         ]
         
         for sa_file_path in possible_paths:
